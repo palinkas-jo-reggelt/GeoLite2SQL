@@ -32,7 +32,7 @@ $MySQLDatabase = 'geoip'
 $MySQLHost = 'localhost'
 ### End User Variables 
 
-# https://www.quadrotech-it.com/blog/querying-mysql-from-powershell/
+#	Function from: https://www.quadrotech-it.com/blog/querying-mysql-from-powershell/
 Function MySQLQuery($Query) {
 	$DBErrorLog = '$GeoIPDir\DBError.log'
 	$ConnectionString = "server=" + $MySQLHost + ";port=3306;uid=" + $MySQLAdminUserName + ";pwd=" + $MySQLAdminPassword + ";database=" + $MySQLDatabase
@@ -55,7 +55,7 @@ Function MySQLQuery($Query) {
 	}
 }
 
-# Function from: https://www.ryandrane.com/2016/05/getting-ip-network-information-powershell/
+#	Function from: https://www.ryandrane.com/2016/05/getting-ip-network-information-powershell/
 Function Get-IPv4NetworkInfo
 {
     Param
