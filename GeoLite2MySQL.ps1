@@ -253,6 +253,7 @@ $Query = "
 	  geoname_id int(7) NOT NULL,
 	  countrycode varchar(2) NOT NULL,
 	  countryname varchar(48) NOT NULL
+	  PRIMARY KEY (minip)
 	) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 	COMMIT;
 	"
