@@ -20,8 +20,48 @@ Initial loading of the database takes over one hour - subsequent updates are inc
 ## EXAMPLE QUERY
 Returns countrycode and countryname from a given IP address:
 	
-```SELECT countrycode, countryname FROM geo_ip WHERE INET_ATON('182.253.228.22') >= INET_ATON(minip) AND INET_ATON('182.253.228.22') <= INET_ATON(maxip)```
+```
+SELECT countrycode, countryname FROM geoip WHERE INET_ATON('1.114.216.150') BETWEEN minipaton AND maxipaton LIMIT 1
+```
+
+## hMailServer VBS
+Subroutine:
+```
+Sub GeoIPLookup(ByVal sIPAddress, ByRef m_CountryCode, ByRef m_CountryName)
+    Dim oRecord, oConn : Set oConn = CreateObject("ADODB.Connection")
+    oConn.Open "Driver={MariaDB ODBC 3.0 Driver}; Server=localhost; Database=geoip; User=geoip; Password=nnPCGiO3DhddUeJm;"
+
+    If oConn.State <> 1 Then
+'       EventLog.Write( "Sub GeoIPLookup - ERROR: Could not connect to database" )
+        WScript.Echo( "Sub GeoIPLookup - ERROR: Could not connect to database" )
+        m_CountryCode = "XX"
+        m_CountryName = "ERROR"
+        Exit Sub
+    End If
+
+    m_CountryCode = "NX"
+    m_CountryName = "NOT FOUND"
+
+    Set oRecord = oConn.Execute("SELECT countrycode, countryname FROM geo_ip WHERE INET_ATON('" & sIPAddress & "') BETWEEN minipaton AND maxipaton LIMIT 1")
+    Do Until oRecord.EOF
+        m_CountryCode = oRecord("countrycode")
+        m_CountryName = oRecord("countryname")
+        oRecord.MoveNext
+    Loop
+    oConn.Close
+    Set oRecord = Nothing
+End Sub
+```
+
+Call Sub:
+```
+'	GeoIP Lookup
+Dim m_CountryCode, m_CountryName
+Call GeoIPLookup(oClient.IPAddress, m_CountryCode, m_CountryName)
+```
 
 ## HISTORY
+- v.04 bug fixes
+- v.03 bug fixes
 - v.02 added incremental update and error checking
 - v.01 first commit

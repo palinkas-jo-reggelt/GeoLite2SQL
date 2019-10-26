@@ -8,7 +8,7 @@
 
 .FUNCTIONALITY
 	1) If geoip table does not exist, it gets created
-	2) Deletes old files, renames previously "new" "old" in order to compare
+	2) Deletes old files if existing, renames previously "new" "old" in order to compare
 	3) Downloads MaxMinds geolite2 cvs data as zip file, uncompresses it, then renames the folder
 	4) Compares new and old data for incremental changes
 	5) Reads IPv4 cvs data, then calculates the lowest and highest IP from each network in the database
@@ -18,27 +18,27 @@
 	9) Includes various error checking to keep from blowing up a working database on error
 
 .NOTES
-	Run every Wednesday via task scheduler (MaxMinds releases updates on Tuesdays)
-	Initial loading of the database takes over one hour - subsequent updates are incremental, so they only take a few minutes
+	* Run every Wednesday via task scheduler (MaxMinds releases updates on Tuesdays)
+	* Initial loading of the database takes over one hour - subsequent updates are incremental, so they only take a few minutes
 	
 .EXAMPLE
 	Example query to return countrycode and countryname from database:
 	
-	SELECT countrycode, countryname FROM `geoip` WHERE INET_ATON('14.1.224.229') BETWEEN INET_ATON(minip) AND INET_ATON(maxip) LIMIT 1
+	SELECT countrycode, countryname FROM geoip WHERE INET_ATON('1.114.216.150') BETWEEN minipaton AND maxipaton LIMIT 1
 
 #>
 
 ### User Variables ###
-$GeoIPDir = 'C:\scripts\geolite2' 	# Location of files. No trailing "\" please. Please make sure folder exists.
+$GeoIPDir = "C:\scripts\geolite2" 	# Location of files. No trailing "\" please. Please make sure folder exists.
 $MySQLAdminUserName = 'geoip'
-$MySQLAdminPassword = 'nnPCGiO3DhddUeJm'
+$MySQLAdminPassword = 'supersecretpassword'
 $MySQLDatabase = 'geoip'
 $MySQLHost = 'localhost'
 ### End User Variables ###
 
 # https://www.quadrotech-it.com/blog/querying-mysql-from-powershell/
 Function MySQLQuery($Query) {
-	$DBErrorLog = '$GeoIPDir\DBError.log'
+	$DBErrorLog = "$GeoIPDir\DBError.log"
 	$ConnectionString = "server=" + $MySQLHost + ";port=3306;uid=" + $MySQLAdminUserName + ";pwd=" + $MySQLAdminPassword + ";database=" + $MySQLDatabase
 	Try {
 	  [void][System.Reflection.Assembly]::LoadWithPartialName("MySql.Data")
@@ -192,8 +192,8 @@ $ToAddIPv4 = "$GeoIPDir\ToAddIPv4.csv"
 $ToDelIPv4 = "$GeoIPDir\ToDelIPv4.csv"
 
 #	Delete old files if exist
-If (Test-Path $GeoIPDir\"GeoLite2-Country-CSV-Old") {Remove-Item -Recurse -Force $GeoIPDir\"GeoLite2-Country-CSV-Old"}
-If (Test-Path $GeoIPDir\"GeoLite2-Country-CSV.zip") {Remove-Item -Force -Path $GeoIPDir\"GeoLite2-Country-CSV.zip"}
+If (Test-Path "$GeoIPDir\GeoLite2-Country-CSV-Old") {Remove-Item -Recurse -Force "$GeoIPDir\GeoLite2-Country-CSV-Old"}
+If (Test-Path "$GeoIPDir\GeoLite2-Country-CSV.zip") {Remove-Item -Force -Path "$GeoIPDir\GeoLite2-Country-CSV.zip"}
 If (Test-Path $ToAddIPv4) {Remove-Item -Force -Path $ToAddIPv4}
 If (Test-Path $ToDelIPv4) {Remove-Item -Force -Path $ToDelIPv4}
 If (Test-Path "$GeoIPDir\GeoLite2-Country-CSV-New") {Rename-Item -Path "$GeoIPDir\GeoLite2-Country-CSV-New" "$GeoIPDir\GeoLite2-Country-CSV-Old"}
@@ -251,10 +251,12 @@ $Query = "
 	  network varchar(18) NOT NULL,
 	  minip varchar(15) NOT NULL,
 	  maxip varchar(15) NOT NULL,
-	  geoname_id int(7) NOT NULL,
+	  geoname_id int(7),
 	  countrycode varchar(2) NOT NULL,
 	  countryname varchar(48) NOT NULL,
-	  PRIMARY KEY (minip)
+	  minipaton int(12) UNSIGNED ZEROFILL NOT NULL,
+	  maxipaton int(12) UNSIGNED ZEROFILL NOT NULL,
+	  PRIMARY KEY (minipaton)
 	) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 	COMMIT;
 	"
@@ -289,7 +291,7 @@ If ((Test-Path "$GeoIPDir\GeoLite2-Country-CSV-Old") -and (Test-Path "$GeoIPDir\
 	$GeoIPObjects | foreach-object {
 		$Network = $_.network
 		$GeoNameID = $_.geoname_id
-		If ($GeoNameID -match '[0-9]{1,12}'){
+		If ($GeoNameID -notmatch 'geoname_id'){
 			$Query = "DELETE FROM $GeoIPTable WHERE network='$Network'"
 			MySQLQuery($Query)
 		}
@@ -299,13 +301,17 @@ If ((Test-Path "$GeoIPDir\GeoLite2-Country-CSV-Old") -and (Test-Path "$GeoIPDir\
 	$GeoIPObjects = import-csv -Path $ToAddIPv4 -Delimiter "," -Header network,geoname_id,registered_country_geoname_id,represented_country_geoname_id,is_anonymous_proxy,is_satellite_provider
 	$GeoIPObjects | foreach-object {
 		$Network = $_.network
-		$GeoNameID = $_.geoname_id
-		If ($GeoNameID -match '[0-9]{1,12}'){
+		IF([string]::IsNullOrWhiteSpace($_.geoname_id)){
+			$GeoNameID = $_.registered_country_geoname_id
+		} Else {
+			$GeoNameID = $_.geoname_id
+		}
+		If ($GeoNameID -notmatch 'geoname_id'){
 			Get-IPv4NetworkInfo -CIDRAddress $Network | ForEach-Object {
 				$MinIP = $_.NetworkAddress
 				$MaxIP = $_.BroadcastAddress
 			}
-			$Query = "INSERT INTO $GeoIPTable (network,minip,maxip,geoname_id) VALUES ('$Network','$MinIP','$MaxIP','$GeoNameID')"
+			$Query = "INSERT INTO $GeoIPTable (network,minip,maxip,geoname_id,minipaton,maxipaton) VALUES ('$Network','$MinIP','$MaxIP','$GeoNameID',INET_ATON('$MinIP'),INET_ATON('$MaxIP'))"
 			MySQLQuery($Query)
 		}
 	}
@@ -333,13 +339,17 @@ ElseIf ((Test-Path "$GeoIPDir\GeoLite2-Country-CSV-New") -and ($EntryCount -eq 0
 	$GeoIPObjects = import-csv -Path $CountryBlocksIPV4 -Delimiter "," -Header network,geoname_id,registered_country_geoname_id,represented_country_geoname_id,is_anonymous_proxy,is_satellite_provider
 	$GeoIPObjects | foreach-object {
 		$Network = $_.network
-		$GeoNameID = $_.geoname_id
-		If ($GeoNameID -match '[0-9]{1,12}'){
+		IF([string]::IsNullOrWhiteSpace($_.geoname_id)){
+			$GeoNameID = $_.registered_country_geoname_id
+		} Else {
+			$GeoNameID = $_.geoname_id
+		}
+		If ($GeoNameID -notmatch 'geoname_id'){
 			Get-IPv4NetworkInfo -CIDRAddress $Network | ForEach-Object {
 				$MinIP = $_.NetworkAddress
 				$MaxIP = $_.BroadcastAddress
 			}
-			$Query = "INSERT INTO $GeoIPTable (network,minip,maxip,geoname_id) VALUES ('$Network','$MinIP','$MaxIP','$GeoNameID')"
+			$Query = "INSERT INTO $GeoIPTable (network,minip,maxip,geoname_id,minipaton,maxipaton) VALUES ('$Network','$MinIP','$MaxIP','$GeoNameID',INET_ATON('$MinIP'),INET_ATON('$MaxIP'))"
 			MySQLQuery($Query)
 		}
 	}
