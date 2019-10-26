@@ -15,7 +15,7 @@ Import MaxMinds GeoLite2 data into MySQL
 ## NOTES
 Run every Wednesday via task scheduler (MaxMinds releases updates on Tuesdays)
 
-Initial loading of the database takes over one hour - subsequent updates are incremental, so they only take a few minutes
+Initial loading of the database takes a LONG time, about 2 hours on my old hardware (338k+ records) - subsequent updates are incremental, so they only take a few minutes
 	
 ## EXAMPLE QUERY
 Returns countrycode and countryname from a given IP address:
