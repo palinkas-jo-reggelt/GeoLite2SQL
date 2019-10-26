@@ -30,8 +30,9 @@
 
 ### User Variables ###
 $GeoIPDir = "C:\scripts\geolite2" 	# Location of files. No trailing "\" please. Please make sure folder exists.
+$GeoIPTable = "geo_ip"				# Name of table
 $MySQLAdminUserName = 'geoip'
-$MySQLAdminPassword = 'supersecretpassword'
+$MySQLAdminPassword = 'SuperSecretPassword'
 $MySQLDatabase = 'geoip'
 $MySQLHost = 'localhost'
 ### End User Variables ###
@@ -52,7 +53,7 @@ Function MySQLQuery($Query) {
 	  $DataSet.Tables[0]
 	  }
 	Catch {
-	  Write-Output "$((get-date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Unable to run query : $query `n$Error[0]" | out-file $DBErrorLog -append
+	  Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Unable to run query : $query `n$Error[0]" | out-file $DBErrorLog -append
 	}
 	Finally {
 	  $Connection.Close()
@@ -200,8 +201,8 @@ If (Test-Path "$GeoIPDir\GeoLite2-Country-CSV-New") {Rename-Item -Path "$GeoIPDi
 
 #	Check to make sure files deleted
 If ((Test-Path $ToAddIPv4) -or (Test-Path $ToDelIPv4)){
-	Write-Output "$((get-date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Failed to delete old ToDelIPv4.csv and/or ToAddIPv4.csv" | out-file $ErrorLog -append
-	Write-Output "$((get-date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | out-file $ErrorLog -append
+	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Failed to delete old ToDelIPv4.csv and/or ToAddIPv4.csv" | out-file $ErrorLog -append
+	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | out-file $ErrorLog -append
 	Exit
 }
 
@@ -211,8 +212,8 @@ New-Item $ToDelIPv4 -value "network,geoname_id,registered_country_geoname_id,rep
 
 #	Check to make sure new comparison CSVs created
 If ((-not (Test-Path $ToAddIPv4)) -or (-not (Test-Path $ToDelIPv4))){
-	Write-Output "$((get-date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : $ToAddIPv4 and/or $ToDelIPv4 do not exist" | out-file $ErrorLog -append
-	Write-Output "$((get-date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | out-file $ErrorLog -append
+	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : $ToAddIPv4 and/or $ToDelIPv4 do not exist" | out-file $ErrorLog -append
+	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | out-file $ErrorLog -append
 	Exit
 }
 
@@ -224,8 +225,8 @@ Try {
 	Expand-Archive $output -DestinationPath $GeoIPDir -ErrorAction Stop
 }
 Catch {
-	Write-Output "$((get-date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Unable to download and/or unzip : `n$Error[0]" | out-file $ErrorLog -append
-	Write-Output "$((get-date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | out-file $ErrorLog -append
+	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Unable to download and/or unzip : `n$Error[0]" | out-file $ErrorLog -append
+	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | out-file $ErrorLog -append
 	Exit
 }
 
@@ -239,13 +240,12 @@ Rename-Item "$GeoIPDir\$FolderName" "$GeoIPDir\GeoLite2-Country-CSV-New"
 
 # If new downloaded folder does not exist or could not be renamed, then throw error
 If (-not (Test-Path "$GeoIPDir\GeoLite2-Country-CSV-New")){
-	Write-Output "$((get-date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : $GeoIPDir\GeoLite2-Country-CSV-New does not exist" | out-file $ErrorLog -append
-	Write-Output "$((get-date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | out-file $ErrorLog -append
+	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : $GeoIPDir\GeoLite2-Country-CSV-New does not exist" | out-file $ErrorLog -append
+	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | out-file $ErrorLog -append
 	Exit
 }
 
 #	Create table if it doesn't exist
-$GeoIPTable = "geoip"
 $Query = "
 	CREATE TABLE IF NOT EXISTS $GeoIPTable (
 	  network varchar(18) NOT NULL,
@@ -286,9 +286,9 @@ MySQLQuery($Query) | ForEach {
 If ((Test-Path "$GeoIPDir\GeoLite2-Country-CSV-Old") -and (Test-Path "$GeoIPDir\GeoLite2-Country-CSV-New") -and ($EntryCount -gt 0)){
 
 	# 	Load table from incremental: 
-	# 	Read ToDelIPv4 cvs file, convert CIDR network address to lowest and highest IPs in range, then delete from database
-	$GeoIPObjects = import-csv -Path $ToDelIPv4 -Delimiter "," -Header network,geoname_id,registered_country_geoname_id,represented_country_geoname_id,is_anonymous_proxy,is_satellite_provider
-	$GeoIPObjects | foreach-object {
+	# 	Read ToDelIPv4 cvs file, delete matches from database
+	$GeoIPObjects = Import-CSV -Path $ToDelIPv4 -Delimiter "," -Header network,geoname_id,registered_country_geoname_id,represented_country_geoname_id,is_anonymous_proxy,is_satellite_provider
+	$GeoIPObjects | ForEach-Object {
 		$Network = $_.network
 		$GeoNameID = $_.geoname_id
 		If ($GeoNameID -notmatch 'geoname_id'){
@@ -298,8 +298,8 @@ If ((Test-Path "$GeoIPDir\GeoLite2-Country-CSV-Old") -and (Test-Path "$GeoIPDir\
 	}
 
 	# 	Read ToAddIPv4 cvs file, convert CIDR network address to lowest and highest IPs in range, then insert into database
-	$GeoIPObjects = import-csv -Path $ToAddIPv4 -Delimiter "," -Header network,geoname_id,registered_country_geoname_id,represented_country_geoname_id,is_anonymous_proxy,is_satellite_provider
-	$GeoIPObjects | foreach-object {
+	$GeoIPObjects = Import-CSV -Path $ToAddIPv4 -Delimiter "," -Header network,geoname_id,registered_country_geoname_id,represented_country_geoname_id,is_anonymous_proxy,is_satellite_provider
+	$GeoIPObjects | ForEach-Object {
 		$Network = $_.network
 		IF([string]::IsNullOrWhiteSpace($_.geoname_id)){
 			$GeoNameID = $_.registered_country_geoname_id
@@ -318,12 +318,12 @@ If ((Test-Path "$GeoIPDir\GeoLite2-Country-CSV-Old") -and (Test-Path "$GeoIPDir\
 
 	# 	Read country info cvs and insert into database
 	$CountryLocations = "$GeoIPDir\GeoLite2-Country-CSV-New\GeoLite2-Country-Locations-en.csv"
-	$GeoIPNameObjects = import-csv -Path $CountryLocations -Delimiter "," -Header geoname_id,locale_code,continent_code,continent_name,country_iso_code,country_name,is_in_european_union
-	$GeoIPNameObjects | foreach-object {
+	$GeoIPNameObjects = Import-CSV -Path $CountryLocations -Delimiter "," -Header geoname_id,locale_code,continent_code,continent_name,country_iso_code,country_name,is_in_european_union
+	$GeoIPNameObjects | ForEach-Object {
 		$GeoNameID = $_.geoname_id
 		$CountryCode = $_.country_iso_code
 		$CountryName = $_.country_name
-		If ($GeoNameID -match '[0-9]{1,12}'){
+		If ($GeoNameID -notmatch 'geoname_id'){
 			$Query = "UPDATE $GeoIPTable SET countrycode='$CountryCode', countryname='$CountryName' WHERE geoname_id='$GeoNameID' AND countrycode='' AND countryname=''"
 			MySQLQuery($Query)
 		}
@@ -336,8 +336,8 @@ ElseIf ((Test-Path "$GeoIPDir\GeoLite2-Country-CSV-New") -and ($EntryCount -eq 0
 	# 	Load table from NEW: 
 	# 	Read cvs file, convert CIDR network address to lowest and highest IPs in range, then insert into database
 	$CountryBlocksIPV4 = "$GeoIPDir\GeoLite2-Country-CSV-New\GeoLite2-Country-Blocks-IPv4.csv"
-	$GeoIPObjects = import-csv -Path $CountryBlocksIPV4 -Delimiter "," -Header network,geoname_id,registered_country_geoname_id,represented_country_geoname_id,is_anonymous_proxy,is_satellite_provider
-	$GeoIPObjects | foreach-object {
+	$GeoIPObjects = Import-CSV -Path $CountryBlocksIPV4 -Delimiter "," -Header network,geoname_id,registered_country_geoname_id,represented_country_geoname_id,is_anonymous_proxy,is_satellite_provider
+	$GeoIPObjects | ForEach-Object {
 		$Network = $_.network
 		IF([string]::IsNullOrWhiteSpace($_.geoname_id)){
 			$GeoNameID = $_.registered_country_geoname_id
@@ -356,12 +356,12 @@ ElseIf ((Test-Path "$GeoIPDir\GeoLite2-Country-CSV-New") -and ($EntryCount -eq 0
 
 	# 	Read country info cvs and insert into database
 	$CountryLocations = "$GeoIPDir\GeoLite2-Country-CSV-New\GeoLite2-Country-Locations-en.csv"
-	$GeoIPNameObjects = import-csv -Path $CountryLocations -Delimiter "," -Header geoname_id,locale_code,continent_code,continent_name,country_iso_code,country_name,is_in_european_union
-	$GeoIPNameObjects | foreach-object {
+	$GeoIPNameObjects = Import-CSV -Path $CountryLocations -Delimiter "," -Header geoname_id,locale_code,continent_code,continent_name,country_iso_code,country_name,is_in_european_union
+	$GeoIPNameObjects | ForEach-Object {
 		$GeoNameID = $_.geoname_id
 		$CountryCode = $_.country_iso_code
 		$CountryName = $_.country_name
-		If ($GeoNameID -match '[0-9]{1,12}'){
+		If ($GeoNameID -notmatch 'geoname_id'){
 			$Query = "UPDATE $GeoIPTable SET countrycode='$CountryCode', countryname='$CountryName' WHERE geoname_id='$GeoNameID' AND countrycode='' AND countryname=''"
 			MySQLQuery($Query)
 		}
@@ -370,7 +370,7 @@ ElseIf ((Test-Path "$GeoIPDir\GeoLite2-Country-CSV-New") -and ($EntryCount -eq 0
 
 #	Else Exit since neither incremental nor new load can be accomplished
 Else {
-	Write-Output "$((get-date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Unable to complete database load : Either Old or New data doesn't exist." | out-file $ErrorLog -append
-	Write-Output "$((get-date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | out-file $ErrorLog -append
+	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Unable to complete database load : Either Old or New data doesn't exist." | out-file $ErrorLog -append
+	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | out-file $ErrorLog -append
 	Exit
 }
