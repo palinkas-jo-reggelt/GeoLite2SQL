@@ -25,7 +25,7 @@ SELECT countrycode, countryname FROM geoip WHERE INET_ATON('1.114.216.150') BETW
 ```
 
 ## hMailServer VBS
-Subroutine:
+Subroutine (credit to SorenR for error checking):
 ```
 Sub GeoIPLookup(ByVal sIPAddress, ByRef m_CountryCode, ByRef m_CountryName)
     Dim oRecord, oConn : Set oConn = CreateObject("ADODB.Connection")
