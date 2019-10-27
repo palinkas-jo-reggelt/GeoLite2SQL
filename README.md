@@ -1,5 +1,5 @@
 ## GeoLite2MySQL
-Import MaxMinds GeoLite2 data into MySQL
+Powershell script to import MaxMinds GeoLite2 data into MySQL
 
 ## FUNCTIONALITY
 1) If geoip table does not exist, it gets created
@@ -25,7 +25,7 @@ SELECT countrycode, countryname FROM geoip WHERE INET_ATON('1.114.216.150') BETW
 ```
 
 ## hMailServer VBS
-Subroutine:
+Subroutine (credit to SorenR for error checking, among other things):
 ```
 Sub GeoIPLookup(ByVal sIPAddress, ByRef m_CountryCode, ByRef m_CountryName)
     Dim oRecord, oConn : Set oConn = CreateObject("ADODB.Connection")
