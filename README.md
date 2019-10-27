@@ -21,7 +21,7 @@ Initial loading of the database takes a LONG time, about 2 hours on my old hardw
 Returns countrycode and countryname from a given IP address:
 	
 ```
-SELECT countrycode, countryname FROM geoip WHERE INET_ATON('1.114.216.150') BETWEEN minipaton AND maxipaton LIMIT 1
+SELECT countrycode, countryname FROM (SELECT * FROM geo_ip WHERE INET_ATON('125.64.94.220') <= maxipaton LIMIT 1) AS A WHERE minipaton <= INET_ATON('125.64.94.220')
 ```
 
 ## hMailServer VBS
@@ -42,7 +42,7 @@ Sub GeoIPLookup(ByVal sIPAddress, ByRef m_CountryCode, ByRef m_CountryName)
     m_CountryCode = "NX"
     m_CountryName = "NOT FOUND"
 
-    Set oRecord = oConn.Execute("SELECT countrycode, countryname FROM geo_ip WHERE INET_ATON('" & sIPAddress & "') BETWEEN minipaton AND maxipaton LIMIT 1")
+    Set oRecord = oConn.Execute("SELECT countrycode, countryname FROM (SELECT * FROM geo_ip WHERE INET_ATON('" & sIPAddress & "') <= maxipaton LIMIT 1) AS A WHERE minipaton <= INET_ATON('" & sIPAddress & "')")
     Do Until oRecord.EOF
         m_CountryCode = oRecord("countrycode")
         m_CountryName = oRecord("countryname")
