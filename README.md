@@ -1,5 +1,5 @@
 ## GeoLite2MySQL
-Import MaxMinds GeoLite2 data into MySQL
+Powershell script to import MaxMinds GeoLite2 data into MySQL
 
 ## FUNCTIONALITY
 1) If geoip table does not exist, it gets created
