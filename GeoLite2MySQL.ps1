@@ -256,7 +256,7 @@ $Query = "
 	  countryname varchar(48) NOT NULL,
 	  minipaton int(12) UNSIGNED ZEROFILL NOT NULL,
 	  maxipaton int(12) UNSIGNED ZEROFILL NOT NULL,
-	  PRIMARY KEY (minipaton)
+	  PRIMARY KEY (maxipaton)
 	) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 	COMMIT;
 	"
