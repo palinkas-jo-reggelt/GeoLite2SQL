@@ -24,7 +24,7 @@
 .EXAMPLE
 	Example query to return countrycode and countryname from database:
 	
-	SELECT countrycode, countryname FROM geoip WHERE INET_ATON('1.114.216.150') BETWEEN minipaton AND maxipaton LIMIT 1
+	SELECT countrycode, countryname FROM (SELECT * FROM geo_ip WHERE INET_ATON('125.64.94.220') <= maxipaton LIMIT 1) AS A WHERE minipaton <= INET_ATON('125.64.94.220')
 
 #>
 
