@@ -10,7 +10,14 @@ Powershell script to import MaxMinds GeoLite2 data into MySQL
 6) Deletes obsolete records
 7) Inserts lowest and highest IP in range and geoname_id from IPv4 cvs file
 8) Reads geo-name cvs file and updates each record with country code and country name based on the geoname_id
-9) Includes various error checking to keep from blowing up a working database on error
+9) Creates scheduled task for weekly updates
+10) Includes various error checking to keep from blowing up a working database on error
+11) Email notification on error
+
+## INSTRUCTIONS
+1) Create folder to contain scripts and MaxMinds data
+2) Modify user variables in GeoLite2MySQL.ps1
+3) First time run from Powershell console
 
 ## NOTES
 Run every Wednesday via task scheduler (MaxMinds releases updates on Tuesdays)
@@ -61,6 +68,7 @@ Call GeoIPLookup(oClient.IPAddress, m_CountryCode, m_CountryName)
 ```
 
 ## HISTORY
+- v.05 added create scheduled task and email notification
 - v.04 bug fixes
 - v.03 bug fixes
 - v.02 added incremental update and error checking
