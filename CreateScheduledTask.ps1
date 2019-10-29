@@ -1,11 +1,10 @@
 param ( 
-	[string]$GeoIPDir,
 	[string]$File
 )
 
-$TaskOutput = "$GeoIPDir\taskoutput.txt"
-$ErrorLog = "$GeoIPDir\ErrorLog.log"
-$TaskName = "GeoIP Database Update"
+$TaskOutput = "$PSScriptRoot\taskoutput.txt"
+$ErrorLog = "$PSScriptRoot\ErrorLog.log"
+$TaskName = "Update MaxMinds Database"
 $Trigger = New-ScheduledTaskTrigger -Weekly -WeeksInterval 1 -DaysOfWeek Wednesday -At 2am
 $User = "NT AUTHORITY\SYSTEM"
 $Action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-windowstyle hidden -executionpolicy bypass -File $File"
@@ -13,6 +12,7 @@ Register-ScheduledTask -TaskName $TaskName -Trigger $Trigger -User $User -Action
 
 New-Item $TaskOutput
 
+$TaskName = "A Test Import"
 $TaskExists = Get-ScheduledTask | Where-Object {$_.TaskName -like $TaskName }
 
 if($TaskExists) {

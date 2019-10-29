@@ -1,10 +1,10 @@
 <#
 
 .SYNOPSIS
-	Install MaxMindas geoip database on MySQL
+	Install MaxMinds GeoIP database on MySQL
 
 .DESCRIPTION
-	Download and unzip MaxMinds cvs geoip data, then populate MySQL with csv data
+	Download and unzip MaxMinds cvs GeoIP data, then populate MySQL with csv data
 
 .FUNCTIONALITY
 	1) If geoip table does not exist, it gets created
@@ -29,7 +29,6 @@
 #>
 
 ### User Variables ###
-$GeoIPDir = "C:\scripts\geolite2" 	# Location of files. No trailing "\" please. Please make sure folder exists.
 $GeoIPTable = "geo_ip"				# Name of table
 $MySQLAdminUserName = 'geoip'
 $MySQLAdminPassword = 'supersecretpassword'
@@ -204,16 +203,16 @@ Function Get-IPv4NetworkInfo
     return $obj
 }
 
-$ErrorLog = "$GeoIPDir\ErrorLog.log"
-$ToAddIPv4 = "$GeoIPDir\ToAddIPv4.csv"
-$ToDelIPv4 = "$GeoIPDir\ToDelIPv4.csv"
+$ErrorLog = "$PSScriptRoot\ErrorLog.log"
+$ToAddIPv4 = "$PSScriptRoot\ToAddIPv4.csv"
+$ToDelIPv4 = "$PSScriptRoot\ToDelIPv4.csv"
 
 #	Delete old files if exist
-If (Test-Path "$GeoIPDir\GeoLite2-Country-CSV-Old") {Remove-Item -Recurse -Force "$GeoIPDir\GeoLite2-Country-CSV-Old"}
-If (Test-Path "$GeoIPDir\GeoLite2-Country-CSV.zip") {Remove-Item -Force -Path "$GeoIPDir\GeoLite2-Country-CSV.zip"}
+If (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-Old") {Remove-Item -Recurse -Force "$PSScriptRoot\GeoLite2-Country-CSV-Old"}
+If (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV.zip") {Remove-Item -Force -Path "$PSScriptRoot\GeoLite2-Country-CSV.zip"}
 If (Test-Path $ToAddIPv4) {Remove-Item -Force -Path $ToAddIPv4}
 If (Test-Path $ToDelIPv4) {Remove-Item -Force -Path $ToDelIPv4}
-If (Test-Path "$GeoIPDir\GeoLite2-Country-CSV-New") {Rename-Item -Path "$GeoIPDir\GeoLite2-Country-CSV-New" "$GeoIPDir\GeoLite2-Country-CSV-Old"}
+If (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-New") {Rename-Item -Path "$PSScriptRoot\GeoLite2-Country-CSV-New" "$PSScriptRoot\GeoLite2-Country-CSV-Old"}
 
 #	Check to make sure files deleted
 If ((Test-Path $ToAddIPv4) -or (Test-Path $ToDelIPv4)){
@@ -240,9 +239,9 @@ If ((-not (Test-Path $ToAddIPv4)) -or (-not (Test-Path $ToDelIPv4))){
 #	Download latest GeoLite2 data and unzip
 Try {
 	$url = "https://geolite.maxmind.com/download/geoip/database/GeoLite2-Country-CSV.zip"
-	$output = "$GeoIPDir\GeoLite2-Country-CSV.zip"
+	$output = "$PSScriptRoot\GeoLite2-Country-CSV.zip"
 	Start-BitsTransfer -Source $url -Destination $output -ErrorAction Stop
-	Expand-Archive $output -DestinationPath $GeoIPDir -ErrorAction Stop
+	Expand-Archive $output -DestinationPath $PSScriptRoot -ErrorAction Stop
 }
 Catch {
 	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Unable to download and/or unzip : `n$Error[0]" | out-file $ErrorLog -append
@@ -253,16 +252,16 @@ Catch {
 }
 
 #	Rename folder so script can find it
-Get-ChildItem $GeoIPDir | Where-Object {$_.PSIsContainer -eq $true} | ForEach {
+Get-ChildItem $PSScriptRoot | Where-Object {$_.PSIsContainer -eq $true} | ForEach {
 	If ($_.Name -match 'GeoLite2-Country-CSV_[0-9]{8}') {
 		$FolderName = $_.Name
 	}
 }
-Rename-Item "$GeoIPDir\$FolderName" "$GeoIPDir\GeoLite2-Country-CSV-New"
+Rename-Item "$PSScriptRoot\$FolderName" "$PSScriptRoot\GeoLite2-Country-CSV-New"
 
 # If new downloaded folder does not exist or could not be renamed, then throw error
-If (-not (Test-Path "$GeoIPDir\GeoLite2-Country-CSV-New")){
-	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : $GeoIPDir\GeoLite2-Country-CSV-New does not exist" | out-file $ErrorLog -append
+If (-not (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-New")){
+	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : $PSScriptRoot\GeoLite2-Country-CSV-New does not exist" | out-file $ErrorLog -append
 	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | out-file $ErrorLog -append
 	$Msg = "GeoIP update failed at folder rename."
 	Notify($Msg)
@@ -287,9 +286,9 @@ $Query = "
 MySQLQuery($Query)
 
 #	Compare Old and New data for changes
-If ((Test-Path "$GeoIPDir\GeoLite2-Country-CSV-Old") -and (Test-Path "$GeoIPDir\GeoLite2-Country-CSV-New")){
-$CompareCSVIPV4Old = Get-Content "$GeoIPDir\GeoLite2-Country-CSV-Old\GeoLite2-Country-Blocks-IPv4.csv"
-$CompareCSVIPV4New = Get-Content "$GeoIPDir\GeoLite2-Country-CSV-New\GeoLite2-Country-Blocks-IPv4.csv"
+If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-Old") -and (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-New")){
+$CompareCSVIPV4Old = Get-Content "$PSScriptRoot\GeoLite2-Country-CSV-Old\GeoLite2-Country-Blocks-IPv4.csv"
+$CompareCSVIPV4New = Get-Content "$PSScriptRoot\GeoLite2-Country-CSV-New\GeoLite2-Country-Blocks-IPv4.csv"
 	Compare-Object $CompareCSVIPV4Old $CompareCSVIPV4New | ForEach-Object {
 		If ($_.SideIndicator -eq '=>') {
 			Write-Output $_.InputObject | Out-File $ToAddIPv4 -Encoding ASCII -Append
@@ -307,7 +306,7 @@ MySQLQuery($Query) | ForEach {
 }
 
 #	If pass 3 tests: exists old folder, exists new folder, database previously populated - THEN proceed to load table from incremental
-If ((Test-Path "$GeoIPDir\GeoLite2-Country-CSV-Old") -and (Test-Path "$GeoIPDir\GeoLite2-Country-CSV-New") -and ($EntryCount -gt 0)){
+If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-Old") -and (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-New") -and ($EntryCount -gt 0)){
 
 	# 	Load table from incremental: 
 	# 	Read ToDelIPv4 cvs file, delete matches from database
@@ -342,7 +341,7 @@ If ((Test-Path "$GeoIPDir\GeoLite2-Country-CSV-Old") -and (Test-Path "$GeoIPDir\
 		}
 
 		# 	Read country info cvs and insert into database
-		$CountryLocations = "$GeoIPDir\GeoLite2-Country-CSV-New\GeoLite2-Country-Locations-en.csv"
+		$CountryLocations = "$PSScriptRoot\GeoLite2-Country-CSV-New\GeoLite2-Country-Locations-en.csv"
 		$GeoIPNameObjects = Import-CSV -Path $CountryLocations -Delimiter "," -Header geoname_id,locale_code,continent_code,continent_name,country_iso_code,country_name,is_in_european_union
 		$GeoIPNameObjects | ForEach-Object {
 			$GeoNameID = $_.geoname_id
@@ -364,7 +363,7 @@ If ((Test-Path "$GeoIPDir\GeoLite2-Country-CSV-Old") -and (Test-Path "$GeoIPDir\
 }
 
 #	If pass 2 tests: exists new folder, database UNpopulated - then proceed to load table as new
-ElseIf ((Test-Path "$GeoIPDir\GeoLite2-Country-CSV-New") -and ($EntryCount -eq 0)){
+ElseIf ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-New") -and ($EntryCount -eq 0)){
 
 	Write-Host ""
 	Write-Host "Please be patient. Initially loading the database can take two hours or more."
@@ -372,7 +371,7 @@ ElseIf ((Test-Path "$GeoIPDir\GeoLite2-Country-CSV-New") -and ($EntryCount -eq 0
 	# 	Load table from NEW: 
 	# 	Read cvs file, convert CIDR network address to lowest and highest IPs in range, then insert into database
 	Try {
-		$CountryBlocksIPV4 = "$GeoIPDir\GeoLite2-Country-CSV-New\GeoLite2-Country-Blocks-IPv4.csv"
+		$CountryBlocksIPV4 = "$PSScriptRoot\GeoLite2-Country-CSV-New\GeoLite2-Country-Blocks-IPv4.csv"
 		$GeoIPObjects = Import-CSV -Path $CountryBlocksIPV4 -Delimiter "," -Header network,geoname_id,registered_country_geoname_id,represented_country_geoname_id,is_anonymous_proxy,is_satellite_provider
 		$GeoIPObjects | ForEach-Object {
 			$Network = $_.network
@@ -392,7 +391,7 @@ ElseIf ((Test-Path "$GeoIPDir\GeoLite2-Country-CSV-New") -and ($EntryCount -eq 0
 		}
 
 		# 	Read country info cvs and insert into database
-		$CountryLocations = "$GeoIPDir\GeoLite2-Country-CSV-New\GeoLite2-Country-Locations-en.csv"
+		$CountryLocations = "$PSScriptRoot\GeoLite2-Country-CSV-New\GeoLite2-Country-Locations-en.csv"
 		$GeoIPNameObjects = Import-CSV -Path $CountryLocations -Delimiter "," -Header geoname_id,locale_code,continent_code,continent_name,country_iso_code,country_name,is_in_european_union
 		$GeoIPNameObjects | ForEach-Object {
 			$GeoNameID = $_.geoname_id
@@ -413,13 +412,13 @@ ElseIf ((Test-Path "$GeoIPDir\GeoLite2-Country-CSV-New") -and ($EntryCount -eq 0
 	}
 
 	$File = $MyInvocation.MyCommand.Source
-	$CreateScheduledTask = "$GeoIPDir\CreateScheduledTask.ps1"
-	$TaskOutput = "$GeoIPDir\taskoutput.txt"
+	$CreateScheduledTask = "$PSScriptRoot\CreateScheduledTask.ps1"
+	$TaskOutput = "$PSScriptRoot\taskoutput.txt"
 
 	Write-Host " "
 	Write-Host " "
 
-	$CountryBlocksIPV4 = "$GeoIPDir\GeoLite2-Country-CSV-New\GeoLite2-Country-Blocks-IPv4.csv"
+	$CountryBlocksIPV4 = "$PSScriptRoot\GeoLite2-Country-CSV-New\GeoLite2-Country-Blocks-IPv4.csv"
 	$Lines = ([Linq.Enumerable]::Count([System.IO.File]::ReadLines("$CountryBlocksIPV4")) - 1)
 	Write-Host "Records in MaxMinds csv: $Lines"
 
@@ -451,9 +450,9 @@ ElseIf ((Test-Path "$GeoIPDir\GeoLite2-Country-CSV-New") -and ($EntryCount -eq 0
 	$AskTask = Read-Host -prompt "Do you want to create a scheduled task? (y/n)"
 	If ($AskTask -eq 'y') {
 		If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-			Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -File `"$CreateScheduledTask`" -GeoIPDir `"$GeoIPDir`" -File `"$File`"" -Verb RunAs  -Wait
+			Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -File `"$CreateScheduledTask`" -File `"$File`"" -Verb RunAs  -Wait
 		} Else {
-			Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -File `"$CreateScheduledTask`" -GeoIPDir `"$GeoIPDir`" -File `"$File`"" -Wait
+			Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -File `"$CreateScheduledTask`" -File `"$File`"" -Wait
 		}
 		If (Test-Path $TaskOutput) {
 			Get-Content $TaskOutput | ForEach {

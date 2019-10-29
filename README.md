@@ -68,6 +68,7 @@ Call GeoIPLookup(oClient.IPAddress, m_CountryCode, m_CountryName)
 ```
 
 ## HISTORY
+- v.06 housekeeping
 - v.05 added create scheduled task and email notification
 - v.04 bug fixes
 - v.03 bug fixes
