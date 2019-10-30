@@ -4,7 +4,7 @@
 	Install MaxMindas geoip database on MySQL
 
 .DESCRIPTION
-	Download and unzip MaxMinds cvs geoip data, then populate MySQL with csv data
+	Download and unzip MaxMinds cvs geoip data, then populate MySQL with csv data and update the database automatically on a weekly schedule.
 
 .FUNCTIONALITY
 	1) If geoip table does not exist, it gets created
