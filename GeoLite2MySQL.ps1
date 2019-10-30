@@ -1,10 +1,10 @@
 <#
 
 .SYNOPSIS
-	Install MaxMinds GeoIP database on MySQL
+	Install MaxMindas geoip database on MySQL
 
 .DESCRIPTION
-	Download and unzip MaxMinds cvs GeoIP data, then populate MySQL with csv data
+	Download and unzip MaxMinds cvs geoip data, then populate MySQL with csv data
 
 .FUNCTIONALITY
 	1) If geoip table does not exist, it gets created
@@ -16,6 +16,7 @@
 	7) Inserts lowest and highest IP in range and geoname_id from IPv4 cvs file
 	8) Reads geo-name cvs file and updates each record with country code and country name based on the geoname_id
 	9) Includes various error checking to keep from blowing up a working database on error
+	10) Feedback on console on initial database load, then by email on weekly updates.
 
 .NOTES
 	* Run every Wednesday via task scheduler (MaxMinds releases updates on Tuesdays)
@@ -28,33 +29,36 @@
 
 #>
 
-### User Variables ###
-$GeoIPTable = "geo_ip"				# Name of table
-$MySQLAdminUserName = 'geoip'
-$MySQLAdminPassword = 'supersecretpassword'
-$MySQLDatabase = 'geoip'
-$MySQLHost = 'localhost'
-$EmailNotification = 'yes'			# yes/no - If yes, fill in the variables in the Notify function below.
-### End User Variables ###
+### MySQL Variables #############################
+                                                #
+$GeoIPTable         = "geo_ip"                  #
+$MySQLAdminUserName = 'geoip'                   #
+$MySQLAdminPassword = 'supersecretpassword'     #
+$MySQLDatabase      = 'geoip'                   #
+$MySQLHost          = 'localhost'               #
+                                                #
+### Email Variables #############################
+                                                #
+$EmailFrom          = "sender@gmail.com"        #
+$EmailTo            = "recipient@mydomain.tld"  #
+$SMTPServer         = "smtp.gmail.com"          #
+$SMTPAuthUser       = "sender@gmail.com"        #
+$SMTPAuthPass       = "supersecretpassword"     #
+                                                #
+#################################################
 
-Function Notify($Body) {
-	$EmailFrom = "user@gmail.com"
-	$EmailTo = "1234567890@tmomail.net" 
-	$SMTPServer = "smtp.gmail.com" 
-	$SMTPAuthUser = "user@gmail.com"
-	$SMTPAuthPass = "supersecretpassword"
-	$Subject = "MaxMinds Database Update" 
+Function EmailResults {
+	$Subject = "GeoIP Update Results" 
+	$Body = (Get-Content -Path $EmailBody | Out-String )
 	$SMTPClient = New-Object Net.Mail.SmtpClient($SmtpServer, 587) 
 	$SMTPClient.EnableSsl = $true 
 	$SMTPClient.Credentials = New-Object System.Net.NetworkCredential($SMTPAuthUser, $SMTPAuthPass); 
-	If ($EmailNotification -eq 'yes') {
-		$SMTPClient.Send($EmailFrom, $EmailTo, $Subject, $Body)
-	}
+	$SMTPClient.Send($EmailFrom, $EmailTo, $Subject, $Body)
 }
 
 # https://www.quadrotech-it.com/blog/querying-mysql-from-powershell/
 Function MySQLQuery($Query) {
-	$DBErrorLog = "$GeoIPDir\DBError.log"
+	$DBErrorLog = "$PSScriptRoot\DBError.log"
 	$ConnectionString = "server=" + $MySQLHost + ";port=3306;uid=" + $MySQLAdminUserName + ";pwd=" + $MySQLAdminPassword + ";database=" + $MySQLDatabase
 	Try {
 	  [void][System.Reflection.Assembly]::LoadWithPartialName("MySql.Data")
@@ -203,23 +207,37 @@ Function Get-IPv4NetworkInfo
     return $obj
 }
 
+############################
+#
+#       BEGIN SCRIPT
+#
+############################
+
 $ErrorLog = "$PSScriptRoot\ErrorLog.log"
 $ToAddIPv4 = "$PSScriptRoot\ToAddIPv4.csv"
 $ToDelIPv4 = "$PSScriptRoot\ToDelIPv4.csv"
+$CountryBlocksIPV4 = "$PSScriptRoot\GeoLite2-Country-CSV-New\GeoLite2-Country-Blocks-IPv4.csv"
+$CountryBlocksIPV4Old = "$PSScriptRoot\GeoLite2-Country-CSV-Old\GeoLite2-Country-Blocks-IPv4.csv"
+$CountryLocations = "$PSScriptRoot\GeoLite2-Country-CSV-Old\GeoLite2-Country-Locations-en.csv"
+$EmailBody = "$PSScriptRoot\Results.txt"
 
 #	Delete old files if exist
 If (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-Old") {Remove-Item -Recurse -Force "$PSScriptRoot\GeoLite2-Country-CSV-Old"}
 If (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV.zip") {Remove-Item -Force -Path "$PSScriptRoot\GeoLite2-Country-CSV.zip"}
+If (Test-Path $EmailBody) {Remove-Item -Force -Path $EmailBody}
 If (Test-Path $ToAddIPv4) {Remove-Item -Force -Path $ToAddIPv4}
 If (Test-Path $ToDelIPv4) {Remove-Item -Force -Path $ToDelIPv4}
 If (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-New") {Rename-Item -Path "$PSScriptRoot\GeoLite2-Country-CSV-New" "$PSScriptRoot\GeoLite2-Country-CSV-Old"}
+
+$StartTime = (Get-Date -f G)
+Write-Output "GeoIP update start: $StartTime" | Out-File $EmailBody -Encoding ASCII -Append
 
 #	Check to make sure files deleted
 If ((Test-Path $ToAddIPv4) -or (Test-Path $ToDelIPv4)){
 	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Failed to delete old ToDelIPv4.csv and/or ToAddIPv4.csv" | out-file $ErrorLog -append
 	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | out-file $ErrorLog -append
-	$Msg = "GeoIP update failed at delete old files."
-	Notify($Msg)
+	Write-Output "GeoIP update failed to delete old files. See error log." | Out-File $EmailBody -Encoding ASCII -Append
+	EmailResults
 	Exit
 }
 
@@ -231,8 +249,8 @@ New-Item $ToDelIPv4 -value "network,geoname_id,registered_country_geoname_id,rep
 If ((-not (Test-Path $ToAddIPv4)) -or (-not (Test-Path $ToDelIPv4))){
 	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : $ToAddIPv4 and/or $ToDelIPv4 do not exist" | out-file $ErrorLog -append
 	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | out-file $ErrorLog -append
-	$Msg = "GeoIP update failed at create new ToAdd/ToDel."
-	Notify($Msg)
+	Write-Output "GeoIP update failed: Failed to create new ToAdd/ToDel. See error log." | Out-File $EmailBody -Encoding ASCII -Append
+	EmailResults
 	Exit
 }
 
@@ -246,8 +264,8 @@ Try {
 Catch {
 	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Unable to download and/or unzip : `n$Error[0]" | out-file $ErrorLog -append
 	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | out-file $ErrorLog -append
-	$Msg = "GeoIP update failed at download/unzip."
-	Notify($Msg)
+	Write-Output "GeoIP update failed to download or unzip maxminds data zip file. See error log." | Out-File $EmailBody -Encoding ASCII -Append
+	EmailResults
 	Exit
 }
 
@@ -263,8 +281,8 @@ Rename-Item "$PSScriptRoot\$FolderName" "$PSScriptRoot\GeoLite2-Country-CSV-New"
 If (-not (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-New")){
 	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : $PSScriptRoot\GeoLite2-Country-CSV-New does not exist" | out-file $ErrorLog -append
 	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | out-file $ErrorLog -append
-	$Msg = "GeoIP update failed at folder rename."
-	Notify($Msg)
+	Write-Output "GeoIP update failed at folder rename. See error log." | Out-File $EmailBody -Encoding ASCII -Append
+	EmailResults
 	Exit
 }
 
@@ -287,9 +305,7 @@ MySQLQuery($Query)
 
 #	Compare Old and New data for changes
 If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-Old") -and (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-New")){
-$CompareCSVIPV4Old = Get-Content "$PSScriptRoot\GeoLite2-Country-CSV-Old\GeoLite2-Country-Blocks-IPv4.csv"
-$CompareCSVIPV4New = Get-Content "$PSScriptRoot\GeoLite2-Country-CSV-New\GeoLite2-Country-Blocks-IPv4.csv"
-	Compare-Object $CompareCSVIPV4Old $CompareCSVIPV4New | ForEach-Object {
+	Compare-Object (Get-Content $CountryBlocksIPV4Old) (Get-Content $CountryBlocksIPV4) | ForEach-Object {
 		If ($_.SideIndicator -eq '=>') {
 			Write-Output $_.InputObject | Out-File $ToAddIPv4 -Encoding ASCII -Append
 		} Else {
@@ -305,12 +321,17 @@ MySQLQuery($Query) | ForEach {
 	$EntryCount = $_.numrows
 }
 
+############################
+#
+#    INCREMENTAL UPDATE
+#
+############################
 #	If pass 3 tests: exists old folder, exists new folder, database previously populated - THEN proceed to load table from incremental
 If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-Old") -and (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-New") -and ($EntryCount -gt 0)){
 
-	# 	Load table from incremental: 
-	# 	Read ToDelIPv4 cvs file, delete matches from database
 	Try {
+
+		# 	Read ToDelIPv4 cvs file, delete matches from database
 		$GeoIPObjects = Import-CSV -Path $ToDelIPv4 -Delimiter "," -Header network,geoname_id,registered_country_geoname_id,represented_country_geoname_id,is_anonymous_proxy,is_satellite_provider
 		$GeoIPObjects | ForEach-Object {
 			$Network = $_.network
@@ -341,7 +362,6 @@ If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-Old") -and (Test-Path "$PSScr
 		}
 
 		# 	Read country info cvs and insert into database
-		$CountryLocations = "$PSScriptRoot\GeoLite2-Country-CSV-New\GeoLite2-Country-Locations-en.csv"
 		$GeoIPNameObjects = Import-CSV -Path $CountryLocations -Delimiter "," -Header geoname_id,locale_code,continent_code,continent_name,country_iso_code,country_name,is_in_european_union
 		$GeoIPNameObjects | ForEach-Object {
 			$GeoNameID = $_.geoname_id
@@ -356,21 +376,61 @@ If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-Old") -and (Test-Path "$PSScr
 	Catch {
 		Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Incremental update failed : `n$Error[0]" | out-file $ErrorLog -append
 		Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | out-file $ErrorLog -append
-		$Msg = "GeoIP update failed at load incremental."
-		Notify($Msg)
+		Write-Output "GeoIP update failed at loading database. See error log." | Out-File $EmailBody -Encoding ASCII -Append
+		EmailResults
 		Exit
+	}
+
+	#	Count lines in new country block csv
+	[int]$LinesNewCSV = ([Linq.Enumerable]::Count([System.IO.File]::ReadLines("$CountryBlocksIPV4")) - 1)
+
+	#	Count records in database (post-update)
+	$Query = "SELECT COUNT(minip) AS numrows FROM $GeoIPTable"
+	MySQLQuery($Query) | ForEach {
+		$DBCountAfterIncrUpdate = $_.numrows
+	}
+
+	#	Report Results
+	Write-Output " " | Out-File $EmailBody -Encoding ASCII -Append
+	Write-Output ("{0,7} : (A) Records in database prior to update" -f ($EntryCount).ToString("#,###")) | Out-File $EmailBody -Encoding ASCII -Append
+
+	[int]$LinesToDel = ([Linq.Enumerable]::Count([System.IO.File]::ReadLines("$ToDelIPv4")) - 1)
+	Write-Output ("{0,7} : (B) Records removed from database" -f ($LinesToDel).ToString("#,###")) | Out-File $EmailBody -Encoding ASCII -Append
+
+	[int]$LinesToAdd = ([Linq.Enumerable]::Count([System.IO.File]::ReadLines("$ToAddIPv4")) - 1)
+	Write-Output ("{0,7} : (C) Records inserted into database" -f ($LinesToAdd).ToString("#,###")) | Out-File $EmailBody -Encoding ASCII -Append
+	Write-Output "======= :" | Out-File $EmailBody -Encoding ASCII -Append
+
+	[int]$SumOldDelAdd = ($EntryCount - $LinesToDel + $LinesToAdd)
+	Write-Output ("{0,7} : Tabulated (A - B + C) number of records (should match NEW IPV4 csv)" -f ($SumOldDelAdd).ToString("#,###")) | Out-File $EmailBody -Encoding ASCII -Append
+	Write-Output "======= :" | Out-File $EmailBody -Encoding ASCII -Append
+	Write-Output ("{0,7} : Actual number of records in NEW IPV4 csv" -f ($LinesNewCSV).ToString("#,###")) | Out-File $EmailBody -Encoding ASCII -Append
+	Write-Output "======= :" | Out-File $EmailBody -Encoding ASCII -Append
+	Write-Output ("{0,7} : Queried number of records in database (should match NEW IPV4 csv)" -f ($DBCountAfterIncrUpdate).ToString("#,###")) | Out-File $EmailBody -Encoding ASCII -Append
+	Write-Output " " | Out-File $EmailBody -Encoding ASCII -Append
+
+	If (($SumOldDelAdd -ne $LinesNewCSV) -or ($DBCountAfterIncrUpdate -ne $LinesNewCSV)) {
+		Write-Output "GeoIP database update ***FAILED**. Record Count Mismatch" | Out-File $EmailBody -Encoding ASCII -Append
+	} Else {
+		Write-Output "GeoIP database update SUCCESS. All records accounted for." | Out-File $EmailBody -Encoding ASCII -Append
 	}
 }
 
+#########################################
+#
+#  INITIAL DATABASE LOADING (FIRST RUN)
+#
+#########################################
 #	If pass 2 tests: exists new folder, database UNpopulated - then proceed to load table as new
 ElseIf ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-New") -and ($EntryCount -eq 0)){
 
 	Write-Host ""
 	Write-Host "Please be patient. Initially loading the database can take two hours or more."
 	Write-Host ""
-	# 	Load table from NEW: 
-	# 	Read cvs file, convert CIDR network address to lowest and highest IPs in range, then insert into database
+
 	Try {
+
+		# 	Read cvs file, convert CIDR network address to lowest and highest IPs in range, then insert into database
 		$CountryBlocksIPV4 = "$PSScriptRoot\GeoLite2-Country-CSV-New\GeoLite2-Country-Blocks-IPv4.csv"
 		$GeoIPObjects = Import-CSV -Path $CountryBlocksIPV4 -Delimiter "," -Header network,geoname_id,registered_country_geoname_id,represented_country_geoname_id,is_anonymous_proxy,is_satellite_provider
 		$GeoIPObjects | ForEach-Object {
@@ -406,19 +466,11 @@ ElseIf ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-New") -and ($EntryCount -
 	Catch {
 		Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Full (new) db load failed : `n$Error[0]" | out-file $ErrorLog -append
 		Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | out-file $ErrorLog -append
-		$Msg = "GeoIP update failed at load full."
-		Notify($Msg)
+		Write-Output "GeoIP update failed with database error. See error log." | Out-File $EmailBody -Encoding ASCII -Append
+		EmailResults
 		Exit
 	}
 
-	$File = $MyInvocation.MyCommand.Source
-	$CreateScheduledTask = "$PSScriptRoot\CreateScheduledTask.ps1"
-	$TaskOutput = "$PSScriptRoot\taskoutput.txt"
-
-	Write-Host " "
-	Write-Host " "
-
-	$CountryBlocksIPV4 = "$PSScriptRoot\GeoLite2-Country-CSV-New\GeoLite2-Country-Blocks-IPv4.csv"
 	$Lines = ([Linq.Enumerable]::Count([System.IO.File]::ReadLines("$CountryBlocksIPV4")) - 1)
 	Write-Host "Records in MaxMinds csv: $Lines"
 
@@ -435,10 +487,14 @@ ElseIf ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-New") -and ($EntryCount -
 		Write-Host "Database loading **FAILED**."
 		Write-Host "Failed to load $Diff records into database."
 		Write-Host " "
-		$Msg = "GeoIP update failed to load $Diff records."
-		Notify($Msg)
+		Write-Output "GeoIP update failed to load the correct number of records. See error log." | Out-File $EmailBody -Encoding ASCII -Append
+		EmailResults
 		Exit
 	}
+
+	$File = $MyInvocation.MyCommand.Source
+	$CreateScheduledTask = "$PSScriptRoot\CreateScheduledTask.ps1"
+	$TaskOutput = "$PSScriptRoot\taskoutput.txt"
 
 	If (Test-Path $TaskOutput) {Remove-Item -Force -Path $TaskOutput}
 
@@ -476,11 +532,18 @@ ElseIf ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-New") -and ($EntryCount -
 #	Else Exit since neither incremental nor new load can be accomplished
 Else {
 	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Unable to complete database load : Either Old or New data doesn't exist." | out-file $ErrorLog -append
-	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | out-file $ErrorLog -append
-	$Msg = "GeoIP update failed: Either Old or New data doesn't exist."
-	Notify($Msg)
+	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | Out-File $ErrorLog -append
+	Write-Output "GeoIP update failed: Either Old or New data doesn't exist. See error log." | Out-File $EmailBody -Encoding ASCII -Append
+	EmailResults
 	Exit
 }
 
-$Msg = "GeoIP update successful."
-Notify($Msg)
+Write-Output " " | Out-File $EmailBody -Encoding ASCII -Append
+Write-Output " " | Out-File $EmailBody -Encoding ASCII -Append
+Write-Output "GeoIP update successful." | Out-File $EmailBody -Encoding ASCII -Append
+Write-Output " " | Out-File $EmailBody -Encoding ASCII -Append
+
+$EndTime = (Get-Date -f G)
+Write-Output "GeoIP update finish: $EndTime" | Out-File $EmailBody -Encoding ASCII -Append
+
+EmailResults

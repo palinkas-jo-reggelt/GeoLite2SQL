@@ -68,6 +68,7 @@ Call GeoIPLookup(oClient.IPAddress, m_CountryCode, m_CountryName)
 ```
 
 ## HISTORY
+- v.07 added column width formatting to email notification plus more and useful information; email report is meaningful more than "success/fail"
 - v.06 housekeeping
 - v.05 added create scheduled task and email notification
 - v.04 bug fixes
