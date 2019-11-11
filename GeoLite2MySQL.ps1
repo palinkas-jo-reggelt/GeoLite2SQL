@@ -326,6 +326,7 @@ MySQLQuery($Query) | ForEach {
 #    INCREMENTAL UPDATE
 #
 ############################
+
 #	If pass 3 tests: exists old folder, exists new folder, database previously populated - THEN proceed to load table from incremental
 If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-Old") -and (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-New") -and ($EntryCount -gt 0)){
 
@@ -390,14 +391,16 @@ If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-Old") -and (Test-Path "$PSScr
 		$DBCountAfterIncrUpdate = $_.numrows
 	}
 
+	#	Count lines in "ToAdd" and "ToDel" csv's
+	[int]$LinesToDel = ([Linq.Enumerable]::Count([System.IO.File]::ReadLines("$ToDelIPv4")) - 1)
+	[int]$LinesToAdd = ([Linq.Enumerable]::Count([System.IO.File]::ReadLines("$ToAddIPv4")) - 1)
+
 	#	Report Results
 	Write-Output " " | Out-File $EmailBody -Encoding ASCII -Append
 	Write-Output ("{0,7} : (A) Records in database prior to update" -f ($EntryCount).ToString("#,###")) | Out-File $EmailBody -Encoding ASCII -Append
 
-	[int]$LinesToDel = ([Linq.Enumerable]::Count([System.IO.File]::ReadLines("$ToDelIPv4")) - 1)
 	Write-Output ("{0,7} : (B) Records removed from database" -f ($LinesToDel).ToString("#,###")) | Out-File $EmailBody -Encoding ASCII -Append
 
-	[int]$LinesToAdd = ([Linq.Enumerable]::Count([System.IO.File]::ReadLines("$ToAddIPv4")) - 1)
 	Write-Output ("{0,7} : (C) Records inserted into database" -f ($LinesToAdd).ToString("#,###")) | Out-File $EmailBody -Encoding ASCII -Append
 	Write-Output "======= :" | Out-File $EmailBody -Encoding ASCII -Append
 
@@ -409,6 +412,7 @@ If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-Old") -and (Test-Path "$PSScr
 	Write-Output ("{0,7} : Queried number of records in database (should match NEW IPV4 csv)" -f ($DBCountAfterIncrUpdate).ToString("#,###")) | Out-File $EmailBody -Encoding ASCII -Append
 	Write-Output " " | Out-File $EmailBody -Encoding ASCII -Append
 
+	#	Determine success or failure
 	If (($SumOldDelAdd -ne $LinesNewCSV) -or ($DBCountAfterIncrUpdate -ne $LinesNewCSV)) {
 		Write-Output "GeoIP database update ***FAILED**. Record Count Mismatch" | Out-File $EmailBody -Encoding ASCII -Append
 	} Else {
@@ -421,6 +425,7 @@ If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-Old") -and (Test-Path "$PSScr
 #  INITIAL DATABASE LOADING (FIRST RUN)
 #
 #########################################
+
 #	If pass 2 tests: exists new folder, database UNpopulated - then proceed to load table as new
 ElseIf ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-New") -and ($EntryCount -eq 0)){
 
@@ -466,20 +471,22 @@ ElseIf ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-New") -and ($EntryCount -
 	Catch {
 		Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Full (new) db load failed : `n$Error[0]" | out-file $ErrorLog -append
 		Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | out-file $ErrorLog -append
-		Write-Output "GeoIP update failed with database error. See error log." | Out-File $EmailBody -Encoding ASCII -Append
-		EmailResults
+		Write-Host "GeoIP update failed with database error. See error log."
 		Exit
 	}
 
+	#	Count lines in NEW IPv4 csv
 	$Lines = ([Linq.Enumerable]::Count([System.IO.File]::ReadLines("$CountryBlocksIPV4")) - 1)
 	Write-Host "Records in MaxMinds csv: $Lines"
 
+	#	Count records in database
 	$Query = "SELECT COUNT(minip) AS numrows FROM $GeoIPTable"
 	MySQLQuery($Query) | ForEach {
 		$EntryCount = $_.numrows
 	}
 	Write-Host "Records in database: $EntryCount"
 
+	#	Check if number of records in csv and database match to determine success or failure
 	$Diff = ([int]$Lines - [int]$EntryCount)
 	If ($EntryCount -eq $Lines) {
 		Write-Host "Database successfully loaded."
@@ -487,8 +494,7 @@ ElseIf ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-New") -and ($EntryCount -
 		Write-Host "Database loading **FAILED**."
 		Write-Host "Failed to load $Diff records into database."
 		Write-Host " "
-		Write-Output "GeoIP update failed to load the correct number of records. See error log." | Out-File $EmailBody -Encoding ASCII -Append
-		EmailResults
+		Write-Host "GeoIP update failed to load the correct number of records. See error log."
 		Exit
 	}
 
@@ -529,6 +535,12 @@ ElseIf ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-New") -and ($EntryCount -
 	}
 }
 
+#########################################
+#
+#  NO DATABASE LOADING (ERROR)
+#
+#########################################
+
 #	Else Exit since neither incremental nor new load can be accomplished
 Else {
 	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Unable to complete database load : Either Old or New data doesn't exist." | out-file $ErrorLog -append
@@ -538,6 +550,7 @@ Else {
 	Exit
 }
 
+#	Now finish up with email results
 Write-Output " " | Out-File $EmailBody -Encoding ASCII -Append
 Write-Output " " | Out-File $EmailBody -Encoding ASCII -Append
 Write-Output "GeoIP update successful." | Out-File $EmailBody -Encoding ASCII -Append
@@ -545,5 +558,8 @@ Write-Output " " | Out-File $EmailBody -Encoding ASCII -Append
 
 $EndTime = (Get-Date -f G)
 Write-Output "GeoIP update finish: $EndTime" | Out-File $EmailBody -Encoding ASCII -Append
+$OperationTime = New-Timespan $EndTime $StartTime
+Write-Output " " | Out-File $EmailBody -Encoding ASCII -Append
+Write-Output "Completed update in $OperationTime" | Out-File $EmailBody -Encoding ASCII -Append
 
 EmailResults

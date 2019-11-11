@@ -12,7 +12,6 @@ Register-ScheduledTask -TaskName $TaskName -Trigger $Trigger -User $User -Action
 
 New-Item $TaskOutput
 
-$TaskName = "A Test Import"
 $TaskExists = Get-ScheduledTask | Where-Object {$_.TaskName -like $TaskName }
 
 if($TaskExists) {
