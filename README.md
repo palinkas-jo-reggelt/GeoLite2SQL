@@ -68,6 +68,7 @@ Call GeoIPLookup(oClient.IPAddress, m_CountryCode, m_CountryName)
 ```
 
 ## HISTORY
+- v.09 fixed duration time display at success email notification
 - v.08 cleaned up error notifications on initial loading; cleaned up email result body; included report total operation time in email result
 - v.07 added column width formatting to email notification plus more and useful information; email report is meaningful more than "success/fail"
 - v.06 housekeeping

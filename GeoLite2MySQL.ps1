@@ -558,8 +558,11 @@ Write-Output " " | Out-File $EmailBody -Encoding ASCII -Append
 
 $EndTime = (Get-Date -f G)
 Write-Output "GeoIP update finish: $EndTime" | Out-File $EmailBody -Encoding ASCII -Append
-$OperationTime = New-Timespan $EndTime $StartTime
+$OperationTime = New-Timespan $StartTime $EndTime
+If (($Duration).Hours -eq 1) {$sh = ""} Else {$sh = "s"}
+If (($Duration).Minutes -eq 1) {$sm = ""} Else {$sm = "s"}
+If (($Duration).Seconds -eq 1) {$ss = ""} Else {$ss = "s"}
 Write-Output " " | Out-File $EmailBody -Encoding ASCII -Append
-Write-Output "Completed update in $OperationTime" | Out-File $EmailBody -Encoding ASCII -Append
+Write-Output ("Completed update in {0:%h} hour$sh {0:%m} minute$sm {0:%s} second$ss" -f $OperationTime | Out-File $EmailBody -Encoding ASCII -Append
 
 EmailResults
