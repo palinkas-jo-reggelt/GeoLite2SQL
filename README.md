@@ -1,6 +1,12 @@
 ## GeoLite2MySQL
 Powershell script to import MaxMinds GeoLite2 data into MySQL
 
+## NEW
+
+MaxMind no longer allows anonymous downloads of the GeoLite2 databases. You must create an account and obtain a free license key. More information here:
+
+https://blog.maxmind.com/2019/12/18/significant-changes-to-accessing-and-using-geolite2-databases/
+
 ## FUNCTIONALITY
 1) If geoip table does not exist, it gets created
 2) Deletes old files, renames previously "new" "old" in order to compare
@@ -15,14 +21,16 @@ Powershell script to import MaxMinds GeoLite2 data into MySQL
 11) Email notification on error
 
 ## INSTRUCTIONS
-1) Create folder to contain scripts and MaxMinds data
-2) Modify user variables in GeoLite2MySQL.ps1
-3) First time run from Powershell console
+1) Register for a GeoLite2 account here: https://www.maxmind.com/en/geolite2/signup
+2) After successful login to your MaxMind account, generate a new license key (Services > License Key > Generate New Key)
+3) Create folder to contain scripts and MaxMinds data
+4) Modify user variables in GeoLite2MySQL.ps1
+5) First time run from Powershell console
 
 ## NOTES
 Run every Wednesday via task scheduler (MaxMinds releases updates on Tuesdays)
 
-Initial loading of the database takes a LONG time, about 2 hours on my old hardware (338k+ records) - subsequent updates are incremental, so they only take a few minutes
+Initial loading of the database takes a LONG time, about 2 hours on my old hardware (338k+ records). Incremental updates are also time consuming, but unattended. Incremental is preferred over reloading the entire database if the database is in use (which it is, or why bother installing it in the first place?) even though incremental updates often take longer than the initial load.
 	
 ## EXAMPLE QUERY
 Returns countrycode and countryname from a given IP address:
@@ -68,6 +76,7 @@ Call GeoIPLookup(oClient.IPAddress, m_CountryCode, m_CountryName)
 ```
 
 ## HISTORY
+- v.10 fixed dowload url for new MaxMind API access; also fixed an issue renaming the extracted data folder
 - v.09 fixed duration time display at success email notification
 - v.08 cleaned up error notifications on initial loading; cleaned up email result body; included report total operation time in email result
 - v.07 added column width formatting to email notification plus more and useful information; email report is meaningful more than "success/fail"

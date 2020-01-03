@@ -45,6 +45,10 @@ $SMTPServer         = "smtp.gmail.com"          #
 $SMTPAuthUser       = "sender@gmail.com"        #
 $SMTPAuthPass       = "supersecretpassword"     #
                                                 #
+### MaxMind Download Token ######################
+                                                #
+$LicenseKey = "your_license_key"                #
+                                                #
 #################################################
 
 Function EmailResults {
@@ -58,7 +62,8 @@ Function EmailResults {
 
 # https://www.quadrotech-it.com/blog/querying-mysql-from-powershell/
 Function MySQLQuery($Query) {
-	$DBErrorLog = "$PSScriptRoot\DBError.log"
+	$Today = (Get-Date).ToString("yyyyMMdd")
+	$DBErrorLog = "$PSScriptRoot\$Today-DBError.log"
 	$ConnectionString = "server=" + $MySQLHost + ";port=3306;uid=" + $MySQLAdminUserName + ";pwd=" + $MySQLAdminPassword + ";database=" + $MySQLDatabase
 	Try {
 	  [void][System.Reflection.Assembly]::LoadWithPartialName("MySql.Data")
@@ -219,7 +224,7 @@ $ToDelIPv4 = "$PSScriptRoot\ToDelIPv4.csv"
 $CountryBlocksIPV4 = "$PSScriptRoot\GeoLite2-Country-CSV-New\GeoLite2-Country-Blocks-IPv4.csv"
 $CountryBlocksIPV4Old = "$PSScriptRoot\GeoLite2-Country-CSV-Old\GeoLite2-Country-Blocks-IPv4.csv"
 $CountryLocations = "$PSScriptRoot\GeoLite2-Country-CSV-Old\GeoLite2-Country-Locations-en.csv"
-$EmailBody = "$PSScriptRoot\Results.txt"
+$EmailBody = "$PSScriptRoot\EmailBody.txt"
 
 #	Delete old files if exist
 If (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-Old") {Remove-Item -Recurse -Force "$PSScriptRoot\GeoLite2-Country-CSV-Old"}
@@ -256,7 +261,7 @@ If ((-not (Test-Path $ToAddIPv4)) -or (-not (Test-Path $ToDelIPv4))){
 
 #	Download latest GeoLite2 data and unzip
 Try {
-	$url = "https://geolite.maxmind.com/download/geoip/database/GeoLite2-Country-CSV.zip"
+	$url = "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&license_key=$LicenseKey&suffix=zip"
 	$output = "$PSScriptRoot\GeoLite2-Country-CSV.zip"
 	Start-BitsTransfer -Source $url -Destination $output -ErrorAction Stop
 	Expand-Archive $output -DestinationPath $PSScriptRoot -ErrorAction Stop
@@ -264,7 +269,7 @@ Try {
 Catch {
 	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Unable to download and/or unzip : `n$Error[0]" | out-file $ErrorLog -append
 	Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script" | out-file $ErrorLog -append
-	Write-Output "GeoIP update failed to download or unzip maxminds data zip file. See error log." | Out-File $EmailBody -Encoding ASCII -Append
+	Write-Output "GeoIP update failed to download or unzip maxminds data zip file. See error log  : `n$Error[0]" | Out-File $EmailBody -Encoding ASCII -Append
 	EmailResults
 	Exit
 }
@@ -273,9 +278,9 @@ Catch {
 Get-ChildItem $PSScriptRoot | Where-Object {$_.PSIsContainer -eq $true} | ForEach {
 	If ($_.Name -match 'GeoLite2-Country-CSV_[0-9]{8}') {
 		$FolderName = $_.Name
+		Rename-Item "$PSScriptRoot\$FolderName" "$PSScriptRoot\GeoLite2-Country-CSV-New"
 	}
 }
-Rename-Item "$PSScriptRoot\$FolderName" "$PSScriptRoot\GeoLite2-Country-CSV-New"
 
 # If new downloaded folder does not exist or could not be renamed, then throw error
 If (-not (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV-New")){
@@ -550,6 +555,12 @@ Else {
 	Exit
 }
 
+#########################################
+#
+#  FINISH UP
+#
+#########################################
+
 #	Now finish up with email results
 Write-Output " " | Out-File $EmailBody -Encoding ASCII -Append
 Write-Output " " | Out-File $EmailBody -Encoding ASCII -Append
@@ -563,6 +574,6 @@ If (($Duration).Hours -eq 1) {$sh = ""} Else {$sh = "s"}
 If (($Duration).Minutes -eq 1) {$sm = ""} Else {$sm = "s"}
 If (($Duration).Seconds -eq 1) {$ss = ""} Else {$ss = "s"}
 Write-Output " " | Out-File $EmailBody -Encoding ASCII -Append
-Write-Output ("Completed update in {0:%h} hour$sh {0:%m} minute$sm {0:%s} second$ss" -f $OperationTime | Out-File $EmailBody -Encoding ASCII -Append
+Write-Output ("Completed update in {0:%h} hour$sh {0:%m} minute$sm {0:%s} second$ss" -f $OperationTime) | Out-File $EmailBody -Encoding ASCII -Append
 
 EmailResults
