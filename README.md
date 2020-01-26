@@ -44,7 +44,7 @@ Subroutine (credit to SorenR for error checking, among other things):
 ```
 Sub GeoIPLookup(ByVal sIPAddress, ByRef m_CountryCode, ByRef m_CountryName)
     Dim oRecord, oConn : Set oConn = CreateObject("ADODB.Connection")
-    oConn.Open "Driver={MariaDB ODBC 3.0 Driver}; Server=localhost; Database=geoip; User=geoip; Password=nnPCGiO3DhddUeJm;"
+    oConn.Open "Driver={MariaDB ODBC 3.0 Driver}; Server=localhost; Database=geoip; User=geoip; Password=supersecretpassword;"
 
     If oConn.State <> 1 Then
 '       EventLog.Write( "Sub GeoIPLookup - ERROR: Could not connect to database" )
