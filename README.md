@@ -1,5 +1,5 @@
-## GeoLite2MySQL
-Powershell script to import MaxMinds GeoLite2 data into MySQL
+## GeoLite2DB
+Powershell script to import MaxMinds GeoLite2 data into database server table
 
 ## NEW
 
@@ -24,8 +24,8 @@ https://blog.maxmind.com/2019/12/18/significant-changes-to-accessing-and-using-g
 1) Register for a GeoLite2 account here: https://www.maxmind.com/en/geolite2/signup
 2) After successful login to your MaxMind account, generate a new license key (Services > License Key > Generate New Key)
 3) Create folder to contain scripts and MaxMinds data
-4) Modify user variables in GeoLite2MySQL.ps1
-5) First time run from Powershell console
+4) Modify user variables in Config.ps1
+5) First time run from Powershell script GeoLite2DB.ps1
 
 ## NOTES
 Run every Wednesday via task scheduler (MaxMinds releases updates on Tuesdays)
@@ -34,9 +34,15 @@ Initial loading of the database takes a LONG time, about 2 hours on my old hardw
 	
 ## EXAMPLE QUERY
 Returns countrycode and countryname from a given IP address:
-	
+
+MySQL	
 ```
 SELECT countrycode, countryname FROM (SELECT * FROM geo_ip WHERE INET_ATON('125.64.94.220') <= maxipaton LIMIT 1) AS A WHERE minipaton <= INET_ATON('125.64.94.220')
+```
+
+MSSQL	
+```
+SELECT countrycode, countryname FROM (SELECT * FROM geo_ip WHERE dbo.ipStringToInt('125.64.94.220') <= maxipaton LIMIT 1) AS A WHERE minipaton <= dbo.ipStringToInt('125.64.94.220')
 ```
 
 ## hMailServer VBS
@@ -76,6 +82,7 @@ Call GeoIPLookup(oClient.IPAddress, m_CountryCode, m_CountryName)
 ```
 
 ## HISTORY
+- v.12 Added MSSQL support; Added some console information about process task steps. Renamed GeoLite2Mysql.ps1 to GeoLite2DB.ps1 to be database independent
 - v.11 fixed fundamental logical flaw in incremental update: BEFORE: network comparison was made between old and new MaxMind csv files. This worked as long as everything worked as expected. However, after a glitch on my system, the MaxMind files came out of sequence and therefore the number of entries no longer matched the database. NOW: network comparison is made directly between the database and the new MaxMind csv, so it doesn't matter if you skipped a week or a year updating. Additionally, some changes to csv exporting were made to remove foreach loops, speeding up the process dramatically. For example, before, an update containing a few thousand changes would take hours. My latest update with 6k changes took only 20 minutes. Big improvement. 
 - v.10 fixed dowload url for new MaxMind API access; also fixed an issue renaming the extracted data folder
 - v.09 fixed duration time display at success email notification
