@@ -1,10 +1,10 @@
 <#
 
 .SYNOPSIS
-	Install MaxMindas geoip database on MySQL
+	Install MaxMindas geoip database to database server
 
 .DESCRIPTION
-	Downloads and unzips MaxMinds csv geoip data, then populate MySQL with csv data
+	Downloads and unzips MaxMinds csv geoip data, then populate table on database server with csv data
 
 .FUNCTIONALITY
 	1) If geoip table does not exist, it gets created
@@ -29,187 +29,13 @@
 
 #>
 
-### MySQL Variables #############################
-                                                #
-$GeoIPTable         = "geo_ip"                  #
-$MySQLAdminUserName = 'geoip'                   #
-$MySQLAdminPassword = 'supersecretpassword'     #
-$MySQLDatabase      = 'geoip'                   #
-$MySQLHost          = '127.0.0.1'               #
-                                                #
-### Email Variables #############################
-                                                #
-$EmailFrom          = "notifier.acct@gmail.com" #
-$EmailTo            = "me@mydomain.com"         #
-$SMTPServer         = "smtp.gmail.com"          #
-$SMTPAuthUser       = "notifier.acct@gmail.com" #
-$SMTPAuthPass       = 'supersecretpassword'     #
-                                                #
-### MaxMind Download Token ######################
-                                                #
-$LicenseKey         = "supersecretlicensekey"   #
-                                                #
-#################################################
-
-Function EmailResults {
-	$Subject = "GeoIP Update Results" 
-	$Body = (Get-Content -Path $EmailBody | Out-String )
-	$SMTPClient = New-Object Net.Mail.SmtpClient($SmtpServer, 587) 
-	$SMTPClient.EnableSsl = $True 
-	$SMTPClient.Credentials = New-Object System.Net.NetworkCredential($SMTPAuthUser, $SMTPAuthPass); 
-	$SMTPClient.Send($EmailFrom, $EmailTo, $Subject, $Body)
+# Include required files
+Try {
+	.("$PSScriptRoot\Config.ps1")
+	.("$PSScriptRoot\CommonCode.ps1")
 }
-
-# https://www.quadrotech-it.com/blog/querying-mysql-from-powershell/
-Function MySQLQuery($Query) {
-	$Today = (Get-Date).ToString("yyyyMMdd")
-	$DBErrorLog = "$PSScriptRoot\$Today-DBError.log"
-	$ConnectionString = "server=" + $MySQLHost + ";port=3306;uid=" + $MySQLAdminUserName + ";pwd=" + $MySQLAdminPassword + ";database=" + $MySQLDatabase
-	Try {
-	  [void][System.Reflection.Assembly]::LoadWithPartialName("MySql.Data")
-	  $Connection = New-Object MySql.Data.MySqlClient.MySqlConnection
-	  $Connection.ConnectionString = $ConnectionString
-	  $Connection.Open()
-	  $Command = New-Object MySql.Data.MySqlClient.MySqlCommand($Query, $Connection)
-	  $DataAdapter = New-Object MySql.Data.MySqlClient.MySqlDataAdapter($Command)
-	  $DataSet = New-Object System.Data.DataSet
-	  $RecordCount = $dataAdapter.Fill($dataSet, "data")
-	  $DataSet.Tables[0]
-	  }
-	Catch {
-	  Write-Output "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Unable to run query : $query `n$Error[0]" | out-file $DBErrorLog -append
-	}
-	Finally {
-	  $Connection.Close()
-	}
-}
-
-# https://www.ryandrane.com/2016/05/getting-ip-network-information-powershell/
-Function Get-IPv4NetworkInfo
-{
-    Param
-    (
-        [Parameter(ParameterSetName="IPandMask",Mandatory=$true)] 
-        [ValidateScript({$_ -match [ipaddress]$_})] 
-        [System.String]$IPAddress,
-
-        [Parameter(ParameterSetName="IPandMask",Mandatory=$true)] 
-        [ValidateScript({$_ -match [ipaddress]$_})] 
-        [System.String]$SubnetMask,
-
-        [Parameter(ParameterSetName="CIDR",Mandatory=$true)] 
-        [ValidateScript({$_ -match '^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)/([0-9]|[0-2][0-9]|3[0-2])$'})]
-        [System.String]$CIDRAddress,
-
-        [Switch]$IncludeIPRange
-    )
-
-    # If @CIDRAddress is set
-    if($CIDRAddress)
-    {
-         # Separate our IP address, from subnet bit count
-        $IPAddress, [int32]$MaskBits =  $CIDRAddress.Split('/')
-
-        # Create array to hold our output mask
-        $CIDRMask = @()
-
-        # For loop to run through each octet,
-        for($j = 0; $j -lt 4; $j++)
-        {
-            # If there are 8 or more bits left
-            if($MaskBits -gt 7)
-            {
-                # Add 255 to mask array, and subtract 8 bits 
-                $CIDRMask += [byte]255
-                $MaskBits -= 8
-            }
-            else
-            {
-                # bits are less than 8, calculate octet bits and
-                # zero out our $MaskBits variable.
-                $CIDRMask += [byte]255 -shl (8 - $MaskBits)
-                $MaskBits = 0
-            }
-        }
-
-        # Assign our newly created mask to the SubnetMask variable
-        $SubnetMask = $CIDRMask -join '.'
-    }
-
-    # Get Arrays of [Byte] objects, one for each octet in our IP and Mask
-    $IPAddressBytes = ([ipaddress]::Parse($IPAddress)).GetAddressBytes()
-    $SubnetMaskBytes = ([ipaddress]::Parse($SubnetMask)).GetAddressBytes()
-
-    # Declare empty arrays to hold output
-    $NetworkAddressBytes   = @()
-    $BroadcastAddressBytes = @()
-    $WildcardMaskBytes     = @()
-
-    # Determine Broadcast / Network Addresses, as well as Wildcard Mask
-    for($i = 0; $i -lt 4; $i++)
-    {
-        # Compare each Octet in the host IP to the Mask using bitwise
-        # to obtain our Network Address
-        $NetworkAddressBytes +=  $IPAddressBytes[$i] -band $SubnetMaskBytes[$i]
-
-        # Compare each Octet in the subnet mask to 255 to get our wildcard mask
-        $WildcardMaskBytes +=  $SubnetMaskBytes[$i] -bxor 255
-
-        # Compare each octet in network address to wildcard mask to get broadcast.
-        $BroadcastAddressBytes += $NetworkAddressBytes[$i] -bxor $WildcardMaskBytes[$i] 
-    }
-
-    # Create variables to hold our NetworkAddress, WildcardMask, BroadcastAddress
-    $NetworkAddress   = $NetworkAddressBytes -join '.'
-    $BroadcastAddress = $BroadcastAddressBytes -join '.'
-    $WildcardMask     = $WildcardMaskBytes -join '.'
-
-    # Now that we have our Network, Widcard, and broadcast information, 
-    # We need to reverse the byte order in our Network and Broadcast addresses
-    [array]::Reverse($NetworkAddressBytes)
-    [array]::Reverse($BroadcastAddressBytes)
-
-    # We also need to reverse the array of our IP address in order to get its
-    # integer representation
-    [array]::Reverse($IPAddressBytes)
-
-    # Next we convert them both to 32-bit integers
-    $NetworkAddressInt   = [System.BitConverter]::ToUInt32($NetworkAddressBytes,0)
-    $BroadcastAddressInt = [System.BitConverter]::ToUInt32($BroadcastAddressBytes,0)
-    $IPAddressInt        = [System.BitConverter]::ToUInt32($IPAddressBytes,0)
-
-    #Calculate the number of hosts in our subnet, subtracting one to account for network address.
-    $NumberOfHosts = ($BroadcastAddressInt - $NetworkAddressInt) - 1
-
-    # Declare an empty array to hold our range of usable IPs.
-    $IPRange = @()
-
-    # If -IncludeIPRange specified, calculate it
-    if ($IncludeIPRange)
-    {
-        # Now run through our IP range and figure out the IP address for each.
-        For ($j = 1; $j -le $NumberOfHosts; $j++)
-        {
-            # Increment Network Address by our counter variable, then convert back
-            # lto an IP address and extract as string, add to IPRange output array.
-            $IPRange +=[ipaddress]([convert]::ToDouble($NetworkAddressInt + $j)) | Select-Object -ExpandProperty IPAddressToString
-        }
-    }
-
-    # Create our output object
-    $obj = New-Object -TypeName psobject
-
-    # Add our properties to it
-    Add-Member -InputObject $obj -MemberType NoteProperty -Name "IPAddress"           -Value $IPAddress
-    Add-Member -InputObject $obj -MemberType NoteProperty -Name "SubnetMask"          -Value $SubnetMask
-    Add-Member -InputObject $obj -MemberType NoteProperty -Name "NetworkAddress"      -Value $NetworkAddress
-    Add-Member -InputObject $obj -MemberType NoteProperty -Name "BroadcastAddress"    -Value $BroadcastAddress
-    Add-Member -InputObject $obj -MemberType NoteProperty -Name "WildcardMask"        -Value $WildcardMask
-    Add-Member -InputObject $obj -MemberType NoteProperty -Name "NumberOfHostIPs"     -Value $NumberOfHosts
-    Add-Member -InputObject $obj -MemberType NoteProperty -Name "IPRange"             -Value $IPRange
-
-    # Return the object
-    return $obj
+Catch {
+	Write-Output "$((get-date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Unable to load supporting PowerShell Scripts : $query `n$Error[0]" | out-file "$PSScriptRoot\PSError.log" -append
 }
 
 ############################
@@ -224,7 +50,7 @@ $DBcsv = "$PSScriptRoot\Script-Created-Files\CSV-DB.csv"
 $ToAddIPv4 = "$PSScriptRoot\Script-Created-Files\ToAddIPv4.csv"
 $ToDelIPv4 = "$PSScriptRoot\Script-Created-Files\ToDelIPv4.csv"
 $CountryBlocksIPV4 = "$PSScriptRoot\GeoLite2-Country-CSV\GeoLite2-Country-Blocks-IPv4.csv"
-$CountryLocations = "$PSScriptRoot\GeoLite2-Country-CSV\GeoLite2-Country-Locations-en.csv"
+$CountryLocations = "$PSScriptRoot\GeoLite2-Country-CSV\GeoLite2-Country-Locations-$CountryLocationLang.csv"
 $EmailBody = "$PSScriptRoot\Script-Created-Files\EmailBody.txt"
 
 #	Create ConsolidateRules folder if it doesn't exist
@@ -255,8 +81,8 @@ If ((Test-Path $ToAddIPv4) -or (Test-Path $ToDelIPv4)){
 }
 
 #	Create new comparison CSVs
-New-Item $ToAddIPv4 -value "`"network`",`"geoname_id`"`n"
-New-Item $ToDelIPv4 -value "`"network`",`"geoname_id`"`n"
+New-Item $ToAddIPv4 -value "`"network`",`"geoname_id`"`n"  -ItemType "file"
+New-Item $ToDelIPv4 -value "`"network`",`"geoname_id`"`n"  -ItemType "file"
 
 #	Check to make sure new comparison CSVs created
 If ((-not (Test-Path $ToAddIPv4)) -or (-not (Test-Path $ToDelIPv4))){
@@ -299,27 +125,12 @@ If (-not (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV")){
 	Exit
 }
 
-#	Create table if it doesn't exist
-$Query = "
-	CREATE TABLE IF NOT EXISTS $GeoIPTable (
-	  network varchar(18) NOT NULL,
-	  minip varchar(15) NOT NULL,
-	  maxip varchar(15) NOT NULL,
-	  geoname_id int(7),
-	  countrycode varchar(2) NOT NULL,
-	  countryname varchar(48) NOT NULL,
-	  minipaton int(12) UNSIGNED ZEROFILL NOT NULL,
-	  maxipaton int(12) UNSIGNED ZEROFILL NOT NULL,
-	  PRIMARY KEY (maxipaton)
-	) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-	COMMIT;
-	"
-MySQLQuery($Query)
+CreateTablesIfNeeded
 
 #	If database previously loaded then use ToAdd/ToDel to make incremental changes - otherwise, load entire CSV into database
 #	First, check to see database has previously loaded entries
 $Query = "SELECT COUNT(minip) AS numrows FROM $GeoIPTable"
-MySQLQuery($Query) | ForEach {
+RunSQLQuery($Query) | ForEach {
 	$EntryCount = $_.numrows
 }
 
@@ -332,17 +143,26 @@ MySQLQuery($Query) | ForEach {
 #	If pass 2 tests: exists exists new folder, database previously populated - THEN proceed to load table from incremental
 If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") -and ($EntryCount -gt 0)){
 
+	Write-Host "Loading CountryBlocks CSV"
 	#	Dump relevant MaxMind data into comparison csv
 	$MMMakeComparisonCSV = Import-CSV -Path $CountryBlocksIPV4 -Delimiter "," -Header network,geoname_id,registered_country_geoname_id,represented_country_geoname_id,is_anonymous_proxy,is_satellite_provider
+	Write-Host "CSV Loaded"
+	Write-Host "Exporting to aux CSV"
 	$MMMakeComparisonCSV | Select-Object -Property network,@{Name = 'geoname_id'; Expression = {If([string]::IsNullOrWhiteSpace($_.geoname_id)){$_.registered_country_geoname_id} Else {$_.geoname_id}}} | Export-CSV -Path $MMcsv
+	Write-Host "CSV Exported"
 
+	$TotalLinesCountryBlocks = $MMMakeComparisonCSV.Count - 1
+	
+	Write-Host "Loading entries from DB"
 	#	Dump relevant database data into comparison csv
 	$Query = "SELECT network, geoname_id FROM $GeoIPTable"
-	MySQLQuery($Query) | Export-CSV -Path $DBcsv
+	RunSQLQuery($Query) | Export-CSV -Path $DBcsv
+	Write-Host "Entries Loaded"
 
 	#	Compare database and MaxMind data for changes
 
 	If ((Test-Path $MMcsv) -and (Test-Path $DBcsv)){
+		Write-Host "Comparing entries"
 		Compare-Object -ReferenceObject $(Get-Content $DBcsv) -DifferenceObject $(Get-Content $MMcsv) | ForEach-Object {
 			If ($_.SideIndicator -eq '=>') {
 				Write-Output $_.InputObject | Out-File $ToAddIPv4 -Encoding ASCII -Append
@@ -350,26 +170,63 @@ If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") -and ($EntryCount -gt 0)){
 				Write-Output $_.InputObject | Out-File $ToDelIPv4 -Encoding ASCII -Append
 			}
 		}
+		Write-Host "Comparing terminated"
 	}
 
 	Try {
 		
 		$RegexNetwork = '((?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\/([0-2][0-9]|3[0-2])))'
 		
+		Write-Host "Loading networks to delete from CSV"
 		# 	Read ToDelIPv4 cvs file, delete matches from database
 		$GeoIPObjects = Import-CSV -Path $ToDelIPv4 -Delimiter "," -Header network,geoname_id
+		Write-Host "CSV loaded"
+		
+		$TotalLines = $GeoIPObjects.Count
+		$LinesToDel = $TotalLines - 2
+		$LineCounter = 0
+		$StartTime = (Get-Date -f G)
+
 		$GeoIPObjects | ForEach-Object {
+
+			$LineCounter = $LineCounter + 1
+		
+			$CurrentTime = (Get-Date -f G)
+			$OperationTime = New-Timespan $StartTime $CurrentTime
+			$SecondsPassed = $OperationTime.TotalSeconds / $LineCounter
+			$SecondsRemaining = ($TotalLines - $LineCounter) * $SecondsPassed
+			$percent = [math]::Round(($LineCounter * 100) / $TotalLines,2)
+			Write-Progress -Activity "Processing lines - deleting old networks" -Status "$percent% Complete:" -PercentComplete $percent -SecondsRemaining $SecondsRemaining;
+			
 			$Network = $_.network
 			$GeoNameID = $_.geoname_id
 			If ($Network -match $RegexNetwork){
 				$Query = "DELETE FROM $GeoIPTable WHERE network='$Network'"
-				MySQLQuery($Query)
+				RunSQLQuery($Query)
 			}
 		}
 
+		Write-Host "Loading networks to add from CSV"
 		# 	Read ToAddIPv4 cvs file, convert CIDR network address to lowest and highest IPs in range, then insert into database
 		$GeoIPObjects = Import-CSV -Path $ToAddIPv4 -Delimiter "," -Header network,geoname_id
+		Write-Host "CSV loaded"
+
+		$TotalLines = $GeoIPObjects.Count
+		$LinesToAdd = $TotalLines - 3
+		$LineCounter = 0
+		$StartTime = (Get-Date -f G)
+		
 		$GeoIPObjects | ForEach-Object {
+
+			$LineCounter = $LineCounter + 1
+		
+			$CurrentTime = (Get-Date -f G)
+			$OperationTime = New-Timespan $StartTime $CurrentTime
+			$SecondsPassed = $OperationTime.TotalSeconds / $LineCounter
+			$SecondsRemaining = ($TotalLines - $LineCounter) * $SecondsPassed
+			$percent = [math]::Round(($LineCounter * 100) / $TotalLines,2)
+			Write-Progress -Activity "Processing lines - inserting new networks" -Status "$percent% Complete:" -PercentComplete $percent -SecondsRemaining $SecondsRemaining;		
+			
 			$Network = $_.network
 			$GeoNameID = $_.geoname_id
 			If ($Network -match $RegexNetwork){
@@ -377,20 +234,37 @@ If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") -and ($EntryCount -gt 0)){
 					$MinIP = $_.NetworkAddress
 					$MaxIP = $_.BroadcastAddress
 				}
-				$Query = "INSERT INTO $GeoIPTable (network,minip,maxip,geoname_id,minipaton,maxipaton) VALUES ('$Network','$MinIP','$MaxIP','$GeoNameID',INET_ATON('$MinIP'),INET_ATON('$MaxIP'))"
-				MySQLQuery($Query)
+				$Query = "INSERT INTO $GeoIPTable (network,minip,maxip,geoname_id,minipaton,maxipaton,countrycode,countryname) VALUES ('$Network','$MinIP','$MaxIP','$GeoNameID',$(DBIpStringToIntField $MinIP), $(DBIpStringToIntField $MaxIP),'','')"
+				RunSQLQuery($Query)
 			}
 		}
 
+		Write-Host "Loading CountryLocations CSV"
 		# 	Read country info cvs and insert into database
 		$GeoIPNameObjects = Import-CSV -Path $CountryLocations -Delimiter "," -Header geoname_id,locale_code,continent_code,continent_name,country_iso_code,country_name,is_in_european_union
+		Write-Host "CSV loaded"
+
+		$TotalLines = $GeoIPNameObjects.Count
+		$LineCounter = 0
+		$StartTime = (Get-Date -f G)
+
 		$GeoIPNameObjects | ForEach-Object {
+
+		$LineCounter = $LineCounter + 1
+		
+			$CurrentTime = (Get-Date -f G)
+			$OperationTime = New-Timespan $StartTime $CurrentTime
+			$SecondsPassed = $OperationTime.TotalSeconds / $LineCounter
+			$SecondsRemaining = ($TotalLines - $LineCounter) * $SecondsPassed
+			$percent = [math]::Round(($LineCounter * 100) / $TotalLines,2)
+			Write-Progress -Activity "Processing lines - updating countries name" -Status "$percent% Complete:" -PercentComplete $percent -SecondsRemaining $SecondsRemaining;		
+			
 			$GeoNameID = $_.geoname_id
 			$CountryCode = $_.country_iso_code
 			$CountryName = $_.country_name
 			If ($GeoNameID -notmatch 'geoname_id'){
 				$Query = "UPDATE $GeoIPTable SET countrycode='$CountryCode', countryname='$CountryName' WHERE geoname_id='$GeoNameID' AND countrycode='' AND countryname=''"
-				MySQLQuery($Query)
+				RunSQLQuery($Query)
 			}
 		}
 	}
@@ -403,17 +277,17 @@ If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") -and ($EntryCount -gt 0)){
 	}
 
 	#	Count lines in new country block csv
-	[int]$LinesNewCSV = ([Linq.Enumerable]::Count([System.IO.File]::ReadLines("$CountryBlocksIPV4")) - 1) #Account for 1 header line
+	[int]$LinesNewCSV = $TotalLinesCountryBlocks #Account for 1 header line
 
 	#	Count records in database (post-update)
 	$Query = "SELECT COUNT(minip) AS numrows FROM $GeoIPTable"
-	MySQLQuery($Query) | ForEach {
+	RunSQLQuery($Query) | ForEach {
 		$DBCountAfterIncrUpdate = $_.numrows
 	}
 
 	#	Count lines in "ToAdd" and "ToDel" csv's
-	[int]$LinesToDel = ([Linq.Enumerable]::Count([System.IO.File]::ReadLines("$ToDelIPv4")) - 2) #Account for 2 header lines
-	[int]$LinesToAdd = ([Linq.Enumerable]::Count([System.IO.File]::ReadLines("$ToAddIPv4")) - 3) #Account for 3 header lines
+	#[int]$LinesToDel = ([Linq.Enumerable]::Count([System.IO.File]::ReadLines("$ToDelIPv4")) - 2) #Account for 2 header lines
+	#[int]$LinesToAdd = ([Linq.Enumerable]::Count([System.IO.File]::ReadLines("$ToAddIPv4")) - 3) #Account for 3 header lines
 
 	#	Report Results
 	Write-Output " " | Out-File $EmailBody -Encoding ASCII -Append
@@ -455,9 +329,30 @@ ElseIf ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") -and ($EntryCount -eq 0
 
 	Try {
 
+		Write-Host "Loading CountryBlocks CSV"
 		# 	Read cvs file, convert CIDR network address to lowest and highest IPs in range, then insert into database
 		$GeoIPObjects = Import-CSV -Path $CountryBlocksIPV4 -Delimiter "," -Header network,geoname_id,registered_country_geoname_id,represented_country_geoname_id,is_anonymous_proxy,is_satellite_provider
+		Write-Host "CSV loaded"
+		
+		$TotalLines = $GeoIPObjects.Count
+		$TotalLinesCountryBlocks = $TotalLines - 1 #must subtract header line
+		$LineCounter = 0
+		
+		$StartTime = (Get-Date -f G)
+
+		$SecondsRemaining = 0
 		$GeoIPObjects | ForEach-Object {
+			$LineCounter = $LineCounter + 1
+		
+			If ($LineCounter % 100 -eq 1 -or $LineCounter -eq 1){
+				$CurrentTime = (Get-Date -f G)
+				$OperationTime = New-Timespan $StartTime $CurrentTime
+				$SecondsPassed = $OperationTime.TotalSeconds / $LineCounter
+				$SecondsRemaining = ($TotalLines - $LineCounter) * $SecondsPassed
+				$percent = [math]::Round(($LineCounter * 100) / $TotalLines,2)
+				Write-Progress -Activity "Processing lines" -Status "$percent% Complete:" -PercentComplete $percent -SecondsRemaining $SecondsRemaining;
+			}
+			
 			$Network = $_.network
 			IF([string]::IsNullOrWhiteSpace($_.geoname_id)){
 				$GeoNameID = $_.registered_country_geoname_id
@@ -469,21 +364,48 @@ ElseIf ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") -and ($EntryCount -eq 0
 					$MinIP = $_.NetworkAddress
 					$MaxIP = $_.BroadcastAddress
 				}
-				$Query = "INSERT INTO $GeoIPTable (network,minip,maxip,geoname_id,minipaton,maxipaton) VALUES ('$Network','$MinIP','$MaxIP','$GeoNameID',INET_ATON('$MinIP'),INET_ATON('$MaxIP'))"
-				MySQLQuery($Query)
+				$Query = "INSERT INTO $GeoIPTable (network,minip,maxip,geoname_id,minipaton,maxipaton,countrycode,countryname) VALUES ('$Network','$MinIP','$MaxIP','$GeoNameID',$(DBIpStringToIntField  $MinIP),$(DBIpStringToIntField $MaxIP),'','')"
+				RunSQLQuery($Query)
 			}
 		}
 
+		Write-Host "Loading CountryLocations CSV"
 		# 	Read country info cvs and insert into database
 		$GeoIPNameObjects = Import-CSV -Path $CountryLocations -Delimiter "," -Header geoname_id,locale_code,continent_code,continent_name,country_iso_code,country_name,is_in_european_union
+		Write-Host "CSV loaded"
+		
+		$TotalLines = $GeoIPNameObjects.Count
+		$LineCounter = 0
+
+		$StartTime = (Get-Date -f G)
+
 		$GeoIPNameObjects | ForEach-Object {
+
+			$LineCounter = $LineCounter + 1
+			
+			If ($LineCounter % 10 -eq 1 -or $LineCounter -eq 1){
+				$CurrentTime = (Get-Date -f G)
+				$OperationTime = New-Timespan $StartTime $CurrentTime
+				$SecondsPassed = $OperationTime.TotalSeconds / $LineCounter
+				$SecondsRemaining = ($TotalLines - $LineCounter) * $SecondsPassed
+				$percent = [math]::Round(($LineCounter * 100) / $TotalLines,2)
+				Write-Progress -Activity "Processing lines" -Status "$percent% Complete:" -PercentComplete $percent -SecondsRemaining $SecondsRemaining;
+			}
+
 			$GeoNameID = $_.geoname_id
 			$CountryCode = $_.country_iso_code
 			$CountryName = $_.country_name
+			#IF ip is not allocated to a specific country, put continent info
+			If ([string]::IsNullOrWhiteSpace($CountryName))
+			{
+				$CountryName = $_.continent_name
+				$CountryCode = $_.continent_code
+			}
+	
 			If ($GeoNameID -notmatch 'geoname_id'){
 				$Query = "UPDATE $GeoIPTable SET countrycode='$CountryCode', countryname='$CountryName' WHERE geoname_id='$GeoNameID' AND countrycode='' AND countryname=''"
-				MySQLQuery($Query)
-			}
+				RunSQLQuery($Query)
+			} 
 		}
 	}
 	Catch {
@@ -494,12 +416,12 @@ ElseIf ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") -and ($EntryCount -eq 0
 	}
 
 	#	Count lines in NEW IPv4 csv
-	$Lines = ([Linq.Enumerable]::Count([System.IO.File]::ReadLines("$CountryBlocksIPV4")) - 1)
+	$Lines = $TotalLinesCountryBlocks
 	Write-Host "Records in MaxMinds csv: $Lines"
 
 	#	Count records in database
 	$Query = "SELECT COUNT(minip) AS numrows FROM $GeoIPTable"
-	MySQLQuery($Query) | ForEach {
+	RunSQLQuery($Query) | ForEach {
 		$EntryCount = $_.numrows
 	}
 	Write-Host "Records in database: $EntryCount"
