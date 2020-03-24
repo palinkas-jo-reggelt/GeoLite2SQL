@@ -1,4 +1,4 @@
-## GeoLite2DB
+## GeoLite2SQL
 Powershell script to import MaxMinds GeoLite2 data into database server table
 
 ## NEW
@@ -17,20 +17,19 @@ https://blog.maxmind.com/2019/12/18/significant-changes-to-accessing-and-using-g
 7) Inserts lowest and highest IP in range and geoname_id from IPv4 cvs file
 8) Reads geo-name cvs file and updates each record with country code and country name based on the geoname_id
 9) Creates scheduled task for weekly updates
-10) Includes various error checking to keep from blowing up a working database on error
-11) Email notification on error
+10) Includes various error checking
+11) Email notification on completion or error
 
 ## INSTRUCTIONS
 1) Register for a GeoLite2 account here: https://www.maxmind.com/en/geolite2/signup
 2) After successful login to your MaxMind account, generate a new license key (Services > License Key > Generate New Key)
 3) Create folder to contain scripts and MaxMinds data
 4) Modify user variables in Config.ps1
-5) First time run from Powershell script GeoLite2DB.ps1
+5) Run SetupGeoLite2SQL.ps1 to create database table and scheduled task
+6) First time run can be either from powershell console or from scheduled task.
 
 ## NOTES
 Run every Wednesday via task scheduler (MaxMinds releases updates on Tuesdays)
-
-Initial loading of the database takes a LONG time, about 2 hours on my old hardware (338k+ records). Incremental updates are also time consuming, but unattended. Incremental is preferred over reloading the entire database if the database is in use (which it is, or why bother installing it in the first place?) even though incremental updates often take longer than the initial load.
 
 Requires Powershell version 5.1 or above
 	
@@ -48,7 +47,7 @@ SELECT countrycode, countryname FROM (SELECT * FROM geo_ip WHERE dbo.ipStringToI
 ```
 
 ## hMailServer VBS
-Subroutine (credit to SorenR for error checking, among other things):
+Subroutine (credit to SorenR for error checking, knowledge and motivation, among other things):
 ```
 Sub GeoIPLookup(ByVal sIPAddress, ByRef m_CountryCode, ByRef m_CountryName)
     Dim oRecord, oConn : Set oConn = CreateObject("ADODB.Connection")
@@ -84,6 +83,7 @@ Call GeoIPLookup(oClient.IPAddress, m_CountryCode, m_CountryName)
 ```
 
 ## HISTORY
+- v.14 Added debugging with output options to console or file; moved database/scheduled task creation to SetupGeoLite2SQL.ps1; cleaned up and simplified GeoLite2SQL.ps1
 - v.13 Minor clean up
 - v.12 Added MSSQL support; Added some console information about process task steps. Renamed GeoLite2Mysql.ps1 to GeoLite2DB.ps1 to be database independent
 - v.11 fixed fundamental logical flaw in incremental update: BEFORE: network comparison was made between old and new MaxMind csv files. This worked as long as everything worked as expected. However, after a glitch on my system, the MaxMind files came out of sequence and therefore the number of entries no longer matched the database. NOW: network comparison is made directly between the database and the new MaxMind csv, so it doesn't matter if you skipped a week or a year updating. Additionally, some changes to csv exporting were made to remove foreach loops, speeding up the process dramatically. For example, before, an update containing a few thousand changes would take hours. My latest update with 6k changes took only 20 minutes. Big improvement. 

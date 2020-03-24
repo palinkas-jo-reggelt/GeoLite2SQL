@@ -30,7 +30,7 @@
 
 #>
 
-# Include required files
+<#  Include required files  #>
 Try {
 	.("$PSScriptRoot\Config.ps1")
 }
@@ -38,11 +38,11 @@ Catch {
 	Write-Output "Error while loading supporting PowerShell Scripts" | Out-File -Path "$PSScriptRoot\PSError.log"
 }
 
-#######################################
-#                                     #
-#             EMAIL CODE              #
-#                                     #
-#######################################
+<#######################################
+#                                      #
+#             EMAIL CODE               #
+#                                      #
+#######################################>
 
 Function EmailResults {
 	$Subject = "GeoIP Update Results" 
@@ -55,7 +55,7 @@ Function EmailResults {
 
 
 
-# https://www.ryandrane.com/2016/05/getting-ip-network-information-powershell/
+<#  https://www.ryandrane.com/2016/05/getting-ip-network-information-powershell/  #>
 Function Get-IPv4NetworkInfo {
 	Param
 	(
@@ -74,53 +74,53 @@ Function Get-IPv4NetworkInfo {
 		[Switch]$IncludeIPRange
 	)
 
-	# If @CIDRAddress is set
+	<# If @CIDRAddress is set  #>
 	if ($CIDRAddress) {
-		# Separate our IP address, from subnet bit count
+		<# Separate our IP address, from subnet bit count  #>
 		$IPAddress, [int32]$MaskBits = $CIDRAddress.Split('/')
 
-		# Create array to hold our output mask
+		<# Create array to hold our output mask  #>
 		$CIDRMask = @()
 
-		# For loop to run through each octet,
+		<# For loop to run through each octet,  #>
 		for ($j = 0; $j -lt 4; $j++) {
-			# If there are 8 or more bits left
+			<# If there are 8 or more bits left  #>
 			if ($MaskBits -gt 7) {
-				# Add 255 to mask array, and subtract 8 bits 
+				<# Add 255 to mask array, and subtract 8 bits   #>
 				$CIDRMask += [byte]255
 				$MaskBits -= 8
 			}
 			else {
-				# bits are less than 8, calculate octet bits and
-				# zero out our $MaskBits variable.
+				<# bits are less than 8, calculate octet bits and  #>
+				<# zero out our $MaskBits variable.  #>
 				$CIDRMask += [byte]255 -shl (8 - $MaskBits)
 				$MaskBits = 0
 			}
 		}
 
-		# Assign our newly created mask to the SubnetMask variable
+		<# Assign our newly created mask to the SubnetMask variable  #>
 		$SubnetMask = $CIDRMask -join '.'
 	}
 
-	# Get Arrays of [Byte] objects, one for each octet in our IP and Mask
+	<# Get Arrays of [Byte] objects, one for each octet in our IP and Mask  #>
 	$IPAddressBytes = ([ipaddress]::Parse($IPAddress)).GetAddressBytes()
 	$SubnetMaskBytes = ([ipaddress]::Parse($SubnetMask)).GetAddressBytes()
 
-	# Declare empty arrays to hold output
+	<# Declare empty arrays to hold output  #>
 	$NetworkAddressBytes = @()
 	$BroadcastAddressBytes = @()
 	$WildcardMaskBytes = @()
 
-	# Determine Broadcast / Network Addresses, as well as Wildcard Mask
+	<# Determine Broadcast / Network Addresses, as well as Wildcard Mask  #>
 	for ($i = 0; $i -lt 4; $i++) {
-		# Compare each Octet in the host IP to the Mask using bitwise
-		# to obtain our Network Address
+		<# Compare each Octet in the host IP to the Mask using bitwise  #>
+		<# to obtain our Network Address  #>
 		$NetworkAddressBytes += $IPAddressBytes[$i] -band $SubnetMaskBytes[$i]
 
-		# Compare each Octet in the subnet mask to 255 to get our wildcard mask
+		<# Compare each Octet in the subnet mask to 255 to get our wildcard mask  #>
 		$WildcardMaskBytes += $SubnetMaskBytes[$i] -bxor 255
 
-		# Compare each octet in network address to wildcard mask to get broadcast.
+		<# Compare each octet in network address to wildcard mask to get broadcast.  #>
 		$BroadcastAddressBytes += $NetworkAddressBytes[$i] -bxor $WildcardMaskBytes[$i] 
 	}
 
@@ -205,7 +205,7 @@ Function RunSQLQuery($Query) {
 Function MySQLQuery($Query) {
 	$Today = (Get-Date).ToString("yyyyMMdd")
 	$DBErrorLog = "$PSScriptRoot\$Today-DBError.log"
-	$ConnectionString = "server=" + $SQLHost + ";port=" + $SQLPort + ";uid=" + $SQLAdminUserName + ";pwd=" + $SQLAdminPassword + ";database=" + $SQLDatabase
+	$ConnectionString = "server=" + $SQLHost + ";port=" + $SQLPort + ";uid=" + $SQLAdminUserName + ";pwd=" + $SQLAdminPassword + ";database=" + $SQLDatabase + ";SslMode=" + $SQLSSL + ";"
 	Try {
 		[void][System.Reflection.Assembly]::LoadWithPartialName("MySql.Data")
 		$Connection = New-Object MySql.Data.MySqlClient.MySqlConnection
@@ -252,15 +252,15 @@ Function CreateTablesIfNeeded() {
 		#	Create table if it doesn't exist
 		$Query = "
 			CREATE TABLE IF NOT EXISTS $GeoIPTable (
-			network varchar(18) NOT NULL,
-			minip varchar(15) NOT NULL,
-			maxip varchar(15) NOT NULL,
-			geoname_id int(7),
-			countrycode varchar(2) NOT NULL,
-			countryname varchar(48) NOT NULL,
-			minipaton int(12) UNSIGNED ZEROFILL NOT NULL,
-			maxipaton int(12) UNSIGNED ZEROFILL NOT NULL,
-			PRIMARY KEY (maxipaton)
+				network varchar(18) NOT NULL,
+				minip varchar(15) NOT NULL,
+				maxip varchar(15) NOT NULL,
+				geoname_id int(7),
+				countrycode varchar(2) NOT NULL,
+				countryname varchar(48) NOT NULL,
+				minipaton int(12) UNSIGNED ZEROFILL NOT NULL,
+				maxipaton int(12) UNSIGNED ZEROFILL NOT NULL,
+				PRIMARY KEY (maxipaton)
 			) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 			COMMIT;
 			"
@@ -463,4 +463,17 @@ Function DBFormatDate() {
 		$Return = "FORMAT($fieldName, '$($dateFormatSpecifiers[$formatSpecifier])', 'en-US')"
 	}
 	return $Return
+}
+
+Function VerboseOutput($StringText){
+	If ($VerboseConsole){
+		Write-Host $StringText
+	}
+	If ($VerboseFile){
+		Write-Output $StringText | Out-File $DebugLog -Append
+	}
+}
+
+Function EmailOutput($StringText){
+	Write-Output $StringText | Out-File $EmailBody -Encoding ASCII -Append
 }
