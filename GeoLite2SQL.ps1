@@ -49,6 +49,12 @@ Catch {
 #
 ############################>
 
+<#  Set start time  #>
+$StartTime = (Get-Date -f G)
+VerboseOutput "GeoIP update start: $StartTime"
+EmailOutput "GeoIP update start: $StartTime"
+
+<#  Set file locations  #>
 $DebugLog = "$PSScriptRoot\$((Get-Date).ToString("yyMMdd-HHmm"))-DebugLog.log"
 $MMcsv = "$PSScriptRoot\Script-Created-Files\CSV-MM.csv"
 $DBcsv = "$PSScriptRoot\Script-Created-Files\CSV-DB.csv"
@@ -59,12 +65,14 @@ $CountryLocations = "$PSScriptRoot\GeoLite2-Country-CSV\GeoLite2-Country-Locatio
 $EmailBody = "$PSScriptRoot\Script-Created-Files\EmailBody.txt"
 $VerboseOutputFile = "$PSScriptRoot\VerboseOutput.txt"
 
-<#	Create ConsolidateRules folder if it doesn't exist  #>
+<#	Create folder for temporary script files if it doesn't exist  #>
+VerboseOutput "$(Get-Date -f T) : Create folder for temporary files"
 If (-not(Test-Path "$PSScriptRoot\Script-Created-Files")) {
 	md "$PSScriptRoot\Script-Created-Files"
 }
 
 <#	Delete old files if exist  #>
+VerboseOutput "$(Get-Date -f T) : Deleting old files"
 If (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") {Remove-Item -Recurse -Force "$PSScriptRoot\GeoLite2-Country-CSV"}
 If (Test-Path "$PSScriptRoot\Script-Created-Files\GeoLite2-Country-CSV.zip") {Remove-Item -Force -Path "$PSScriptRoot\Script-Created-Files\GeoLite2-Country-CSV.zip"}
 If (Test-Path $EmailBody) {Remove-Item -Force -Path $EmailBody}
@@ -72,9 +80,6 @@ If (Test-Path $MMcsv) {Remove-Item -Force -Path $MMcsv}
 If (Test-Path $DBcsv) {Remove-Item -Force -Path $DBcsv}
 If (Test-Path $ToAddIPv4) {Remove-Item -Force -Path $ToAddIPv4}
 If (Test-Path $ToDelIPv4) {Remove-Item -Force -Path $ToDelIPv4}
-
-$StartTime = (Get-Date -f G)
-EmailOutput "GeoIP update start: $StartTime"
 
 <#	Check to make sure files deleted  #>
 If ((Test-Path $ToAddIPv4) -or (Test-Path $ToDelIPv4)){
@@ -86,6 +91,7 @@ If ((Test-Path $ToAddIPv4) -or (Test-Path $ToDelIPv4)){
 }
 
 <#	Download latest GeoLite2 data and unzip  #>
+VerboseOutput "$(Get-Date -f T) : Downloading MaxMind data"
 Try {
 	$url = "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&license_key=$LicenseKey&suffix=zip"
 	$output = "$PSScriptRoot\Script-Created-Files\GeoLite2-Country-CSV.zip"
@@ -101,6 +107,7 @@ Catch {
 }
 
 <#	Rename folder so script can find it  #>
+VerboseOutput "$(Get-Date -f T) : Renaming MaxMind data folder"
 Get-ChildItem $PSScriptRoot | Where-Object {$_.PSIsContainer -eq $true} | ForEach {
 	If ($_.Name -match 'GeoLite2-Country-CSV_[0-9]{8}') {
 		$FolderName = $_.Name
@@ -123,6 +130,7 @@ $Query = "SELECT COUNT(minip) AS numrows FROM $GeoIPTable"
 RunSQLQuery($Query) | ForEach {
 	$EntryCount = $_.numrows
 }
+VerboseOutput "$(Get-Date -f T) : Querying number of records in database before starting : $EntryCount records"
 
 <############################
 #
@@ -284,29 +292,42 @@ If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") -and ($EntryCount -gt 0)){
 
 	<#  Report Results  #>
 	VerboseOutput "$(Get-Date -f T) : Database update complete - preparing email report."
-	EmailOutput " "
-	EmailOutput ("{0,7} : (A) Records in database prior to update" -f ($EntryCount).ToString("#,###"))
+	EmailOutput   " "
+	VerboseOutput " "
+	EmailOutput   ("{0,7} : (A) Records in database prior to update" -f ($EntryCount).ToString("#,###"))
+	VerboseOutput ("{0,7} : (A) Records in database prior to update" -f ($EntryCount).ToString("#,###"))
 
-	EmailOutput ("{0,7} : (B) Records tabulated to be removed from database" -f ($LinesToDel).ToString("#,###"))
+	EmailOutput   ("{0,7} : (B) Records tabulated to be removed from database" -f ($LinesToDel).ToString("#,###"))
+	VerboseOutput ("{0,7} : (B) Records tabulated to be removed from database" -f ($LinesToDel).ToString("#,###"))
 
-	EmailOutput ("{0,7} : (C) Records tabulated to be inserted into database" -f ($LinesToAdd).ToString("#,###"))
-	EmailOutput "======= :"
+	EmailOutput   ("{0,7} : (C) Records tabulated to be inserted into database" -f ($LinesToAdd).ToString("#,###"))
+	VerboseOutput ("{0,7} : (C) Records tabulated to be inserted into database" -f ($LinesToAdd).ToString("#,###"))
+	EmailOutput   "======= :"
+	VerboseOutput "======= :"
 
 	[int]$SumOldDelAdd = ($EntryCount - $LinesToDel + $LinesToAdd)
-	EmailOutput ("{0,7} : Tabulated (A - B + C) number of records (should match NEW IPV4 csv)" -f ($SumOldDelAdd).ToString("#,###"))
-	EmailOutput "======= :"
-	EmailOutput ("{0,7} : Actual number of records in NEW IPV4 csv" -f ($LinesNewCSV).ToString("#,###"))
-	EmailOutput "======= :"
-	EmailOutput ("{0,7} : Queried number of records in database (should match NEW IPV4 csv)" -f ($DBCountAfterIncrUpdate).ToString("#,###"))
-	EmailOutput " "
+	EmailOutput   ("{0,7} : Tabulated (A - B + C) number of records (should match NEW IPV4 csv)" -f ($SumOldDelAdd).ToString("#,###"))
+	VerboseOutput ("{0,7} : Tabulated (A - B + C) number of records (should match NEW IPV4 csv)" -f ($SumOldDelAdd).ToString("#,###"))
+	EmailOutput   "======= :"
+	VerboseOutput "======= :"
+	EmailOutput   ("{0,7} : Actual number of records in NEW IPV4 csv" -f ($LinesNewCSV).ToString("#,###"))
+	VerboseOutput ("{0,7} : Actual number of records in NEW IPV4 csv" -f ($LinesNewCSV).ToString("#,###"))
+	EmailOutput   "======= :"
+	VerboseOutput "======= :"
+	EmailOutput   ("{0,7} : Queried number of records in database (should match NEW IPV4 csv)" -f ($DBCountAfterIncrUpdate).ToString("#,###"))
+	VerboseOutput ("{0,7} : Queried number of records in database (should match NEW IPV4 csv)" -f ($DBCountAfterIncrUpdate).ToString("#,###"))
+	EmailOutput   " "
+	VerboseOutput " "
 
 	<#  Determine success or failure  #>
 	If (($SumOldDelAdd -ne $LinesNewCSV) -or ($DBCountAfterIncrUpdate -ne $LinesNewCSV)) {
 		EmailOutput "GeoIP database update ***FAILED**. Record Count Mismatch"
+		VerboseOutput "GeoIP database update ***FAILED**. Record Count Mismatch"
 	} Else {
 		EmailOutput "GeoIP database update SUCCESS. All records accounted for."
+		VerboseOutput "GeoIP database update SUCCESS. All records accounted for."
 	}
-	VerboseOutput "$(Get-Date -f T) : Email report sent. Script finished. Goodbye"
+	VerboseOutput "$(Get-Date -f T) : Email report sent."
 }
 
 <#########################################
@@ -337,6 +358,7 @@ EmailOutput "GeoIP update successful."
 EmailOutput " "
 
 $EndTime = (Get-Date -f G)
+VerboseOutput "GeoIP update finish: $EndTime"
 EmailOutput "GeoIP update finish: $EndTime"
 $OperationTime = New-Timespan $StartTime $EndTime
 If (($Duration).Hours -eq 1) {$sh = ""} Else {$sh = "s"}
@@ -344,5 +366,6 @@ If (($Duration).Minutes -eq 1) {$sm = ""} Else {$sm = "s"}
 If (($Duration).Seconds -eq 1) {$ss = ""} Else {$ss = "s"}
 EmailOutput " "
 EmailOutput ("Completed update in {0:%h} hour$sh {0:%m} minute$sm {0:%s} second$ss" -f $OperationTime)
+VerboseOutput ("Completed update in {0:%h} hour$sh {0:%m} minute$sm {0:%s} second$ss" -f $OperationTime)
 
 EmailResults
