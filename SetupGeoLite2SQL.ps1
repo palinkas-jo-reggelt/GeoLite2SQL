@@ -30,7 +30,7 @@ CreateTablesIfNeeded
 
 <#  Create scheduled task  #>
 
-$File = $MyInvocation.MyCommand.Source
+$File = "$PSScriptRoot\GeoLite2SQL.ps1"
 $CreateScheduledTask = "$PSScriptRoot\CreateScheduledTask.ps1"
 $TaskOutput = "$PSScriptRoot\taskoutput.txt"
 
