@@ -19,12 +19,18 @@
 	10) Feedback on console and by email on weekly updates.
 
 .NOTES
-	* Run every Wednesday via task scheduler (MaxMinds releases updates on Tuesdays)
+	Run every Wednesday via task scheduler (MaxMinds releases updates on Tuesdays)
 	
 .EXAMPLE
 	Example query to return countrycode and countryname from database:
 	
+	MySQL:
+	
 	SELECT countrycode, countryname FROM (SELECT * FROM geo_ip WHERE INET_ATON('125.64.94.220') <= maxipaton LIMIT 1) AS A WHERE minipaton <= INET_ATON('125.64.94.220')
+	
+	MSSQL:
+	
+	SELECT countrycode, countryname FROM (SELECT * FROM geo_ip WHERE dbo.ipStringToInt('125.64.94.220') <= maxipaton LIMIT 1) AS A WHERE minipaton <= dbo.ipStringToInt('125.64.94.220')
 
 #>
 
