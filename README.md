@@ -86,7 +86,7 @@ Call GeoIPLookup(oClient.IPAddress, m_CountryCode, m_CountryName)
 - v.14 Added debugging with output options to console or file; moved database/scheduled task creation to SetupGeoLite2SQL.ps1; cleaned up and simplified GeoLite2SQL.ps1
 - v.13 Minor clean up; Renamed GeoLite2DB.ps1 to GeoLite2SQL.ps1;
 - v.12 Added MSSQL support; Added some console information about process task steps. Renamed GeoLite2Mysql.ps1 to GeoLite2DB.ps1 to be database independent
-- v.11 fixed fundamental logical flaw in incremental update: BEFORE: network comparison was made between old and new MaxMind csv files. This worked as long as everything worked as expected. However, after a glitch on my system, the MaxMind files came out of sequence and therefore the number of entries no longer matched the database. NOW: network comparison is made directly between the database and the new MaxMind csv, so it doesn't matter if you skipped a week or a year updating. Additionally, some changes to csv exporting were made to remove foreach loops, speeding up the process dramatically. For example, before, an update containing a few thousand changes would take hours. My latest update with 6k changes took only 20 minutes. Big improvement. 
+- v.11 fixed logical flow - network comparison is made directly between the database and the new MaxMind csv, so it doesn't matter if you skipped a week or a year updating. More efficient data flow. 
 - v.10 fixed dowload url for new MaxMind API access; also fixed an issue renaming the extracted data folder
 - v.09 fixed duration time display at success email notification
 - v.08 cleaned up error notifications on initial loading; cleaned up email result body; included report total operation time in email result
