@@ -9,7 +9,7 @@ https://blog.maxmind.com/2019/12/18/significant-changes-to-accessing-and-using-g
 
 ## FUNCTIONALITY
 1) If geoip table does not exist, it gets created
-2) Deletes old files, renames previously "new" "old" in order to compare
+2) Deletes old files
 3) Downloads MaxMinds geolite2 cvs data as zip file, uncompresses it, then renames the folder
 4) Compares new and old data for incremental changes
 5) Reads IPv4 cvs data, then calculates the lowest and highest IP from each network in the database
