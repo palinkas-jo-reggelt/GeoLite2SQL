@@ -470,10 +470,12 @@ Function VerboseOutput($StringText){
 		Write-Host $StringText
 	}
 	If ($VerboseFile){
+		$DebugLog = "$PSScriptRoot\DebugLog.log"
 		Write-Output $StringText | Out-File $DebugLog -Append
 	}
 }
 
 Function EmailOutput($StringText){
+	$EmailBody = "$PSScriptRoot\Script-Created-Files\EmailBody.txt"
 	Write-Output $StringText | Out-File $EmailBody -Encoding ASCII -Append
 }
