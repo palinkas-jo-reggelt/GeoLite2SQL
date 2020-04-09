@@ -24,13 +24,13 @@
 .EXAMPLE
 	Example query to return countrycode and countryname from database:
 	
-	MySQL:
+		MySQL:
 	
-	SELECT countrycode, countryname FROM (SELECT * FROM geo_ip WHERE INET_ATON('125.64.94.220') <= maxipaton LIMIT 1) AS A WHERE minipaton <= INET_ATON('125.64.94.220')
+			SELECT countrycode, countryname FROM (SELECT * FROM geo_ip WHERE INET_ATON('125.64.94.220') <= maxipaton LIMIT 1) AS A WHERE minipaton <= INET_ATON('125.64.94.220')
 	
-	MSSQL:
+		MSSQL:
 	
-	SELECT countrycode, countryname FROM (SELECT * FROM geo_ip WHERE dbo.ipStringToInt('125.64.94.220') <= maxipaton LIMIT 1) AS A WHERE minipaton <= dbo.ipStringToInt('125.64.94.220')
+			SELECT countrycode, countryname FROM (SELECT * FROM geo_ip WHERE dbo.ipStringToInt('125.64.94.220') <= maxipaton LIMIT 1) AS A WHERE minipaton <= dbo.ipStringToInt('125.64.94.220')
 
 #>
 
@@ -50,7 +50,7 @@ Catch {
 ############################>
 
 <#  Set start time  #>
-$StartTime = (Get-Date -f G)
+$StartScriptTime = (Get-Date -f G)
 VerboseOutput "`n$(Get-Date -f G) : GeoIP Update Start Script"
 EmailOutput "`n$(Get-Date -f G) : GeoIP Update Start Script"
 
@@ -365,7 +365,7 @@ EmailOutput " "
 $EndTime = (Get-Date -f G)
 VerboseOutput "GeoIP update finish: $EndTime"
 EmailOutput "GeoIP update finish: $EndTime"
-$OperationTime = New-Timespan $StartTime $EndTime
+$OperationTime = New-Timespan $StartScriptTime $EndTime
 If (($Duration).Hours -eq 1) {$sh = ""} Else {$sh = "s"}
 If (($Duration).Minutes -eq 1) {$sm = ""} Else {$sm = "s"}
 If (($Duration).Seconds -eq 1) {$ss = ""} Else {$ss = "s"}
