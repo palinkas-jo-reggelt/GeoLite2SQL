@@ -56,6 +56,6 @@ $CountryLocationLang  = 'en'                        #
 ### Verbosity #######################################
 #                                                   #
 $VerboseConsole       = $True   # Debug to screen   #
-$VerboseFile          = $False  # Debug to file     #
+$VerboseFile          = $True   # Debug to file     #
 #                                                   #
 #####################################################
