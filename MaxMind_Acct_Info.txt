@@ -1,8 +1,0 @@
-MaxMind Account Info
-====================
-
-acct: admin@123.dynu.com
-pass: PJcAS!}4!bS{
-
-Account/User ID: 151939
-License key: TpxeUQwxVORrcq9H
