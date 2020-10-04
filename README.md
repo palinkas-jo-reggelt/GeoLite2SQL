@@ -83,6 +83,7 @@ Call GeoIPLookup(oClient.IPAddress, m_CountryCode, m_CountryName)
 ```
 
 ## HISTORY
+- v.18 fixed delete query, housekeeping
 - v.17 fixed bug with divide by 0, updated email function to attach debug log, housekeeping
 - v.16 fixed script runtime duration reporting
 - v.15 pickup missing geoname_id using ip-api.com json (MaxMind leaves a couple blank for some reason)

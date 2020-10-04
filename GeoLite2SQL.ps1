@@ -130,8 +130,7 @@ If (-not (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV")){
 	Exit
 }
 
-<#	If database previously loaded then use ToAdd/ToDel to make incremental changes - otherwise, load entire CSV into database  #>
-<#	First, check to see database has previously loaded entries  #>
+<#	Count existing database records for error checking later  #>
 $Query = "SELECT COUNT(minip) AS numrows FROM $GeoIPTable"
 RunSQLQuery($Query) | ForEach {
 	$EntryCount = $_.numrows
@@ -145,7 +144,7 @@ VerboseOutput "$(Get-Date -f G) : Querying number of records in database before 
 ############################>
 
 <#  If new MaxMind download exists, proceed to load database  #>
-If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") -and ($EntryCount -gt 0)){
+If (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV"){
 
 	<#  Dump relevant MaxMind data into comparison csv  #>
 	VerboseOutput "$(Get-Date -f G) : Loading MaxMind CountryBlocks csv"
@@ -211,7 +210,7 @@ If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") -and ($EntryCount -gt 0)){
 				Get-IPv4NetworkInfo -CIDRAddress $Network | ForEach-Object {
 					$MaxIP = $_.BroadcastAddress
 				}
-				$Query = "DELETE FROM $GeoIPTable WHERE maxipaton = INET_ATON('$MaxIP')"
+				$Query = "DELETE FROM $GeoIPTable WHERE maxipaton = $(DBIpStringToIntField $MaxIP)"
 				RunSQLQuery($Query)
 			}
 		}
@@ -294,7 +293,7 @@ If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") -and ($EntryCount -gt 0)){
 		VerboseOutput "$(Get-Date -f G) : Finished updating country name records in database"
 	}
 	Catch {
-		VerboseOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Incremental update failed : `n$Error[0]"
+		VerboseOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Update failed : `n$Error[0]"
 		VerboseOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script"
 		EmailOutput "GeoIP update failed at loading database. See debug log for error."
 		EmailResults
@@ -354,9 +353,9 @@ If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") -and ($EntryCount -gt 0)){
 
 <#  Else Exit since database load can be accomplished  #>
 Else {
-	EmailOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Unable to complete database load : Either Old or New data doesn't exist."
+	EmailOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Unable to complete database load : MaxMind data doesn't exist."
 	EmailOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script"
-	EmailOutput "GeoIP update failed: Either Old or New data doesn't exist. See error log."
+	EmailOutput "GeoIP update failed: MaxMind data doesn't exist. See error log."
 	EmailResults
 	Exit
 }
@@ -377,9 +376,9 @@ $EndTime = (Get-Date -f G)
 VerboseOutput "GeoIP update finish: $EndTime"
 EmailOutput "GeoIP update finish: $EndTime"
 $OperationTime = New-Timespan $StartScriptTime $EndTime
-If (($Duration).Hours -eq 1) {$sh = ""} Else {$sh = "s"}
-If (($Duration).Minutes -eq 1) {$sm = ""} Else {$sm = "s"}
-If (($Duration).Seconds -eq 1) {$ss = ""} Else {$ss = "s"}
+If (($OperationTime).Hours -eq 1) {$sh = ""} Else {$sh = "s"}
+If (($OperationTime).Minutes -eq 1) {$sm = ""} Else {$sm = "s"}
+If (($OperationTime).Seconds -eq 1) {$ss = ""} Else {$ss = "s"}
 EmailOutput " "
 EmailOutput ("Completed update in {0:%h} hour$sh {0:%m} minute$sm {0:%s} second$ss" -f $OperationTime)
 VerboseOutput ("Completed update in {0:%h} hour$sh {0:%m} minute$sm {0:%s} second$ss" -f $OperationTime)
