@@ -46,10 +46,10 @@ Catch {
 
 Function EmailResults {
 	$Body = (Get-Content -Path $EmailBody | Out-String )
-	If (Test-Path $DebugLog){$Attachment = New-Object System.Net.Mail.Attachment $DebugLog}
+	If (($AttachDebugLog) -and (Test-Path $DebugLog) -and (((Get-Item $DebugLog).length/1MB) -lt $MaxAttachmentSize)){$Attachment = New-Object System.Net.Mail.Attachment $DebugLog}
 	$Message = New-Object System.Net.Mail.Mailmessage $EmailFrom, $EmailTo, $Subject, $Body
 	$Message.IsBodyHTML = $HTML
-	If (Test-Path $DebugLog){$Message.Attachments.Add($DebugLog)}
+	If (($AttachDebugLog) -and (Test-Path $DebugLog) -and (((Get-Item $DebugLog).length/1MB) -lt $MaxAttachmentSize)){$Message.Attachments.Add($DebugLog)}
 	$SMTP = New-Object System.Net.Mail.SMTPClient $SMTPServer,$SMTPPort
 	$SMTP.EnableSsl = $SSL
 	$SMTP.Credentials = New-Object System.Net.NetworkCredential($SMTPAuthUser, $SMTPAuthPass); 
@@ -225,7 +225,7 @@ Function MySQLQuery($Query) {
 		$DataSet.Tables[0]
 	}
 	Catch {
-		Write-Output "$((get-date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Unable to run query : $query `n$Error[0]" | out-file $DBErrorLog -append
+		VerboseOutput "$(Get-Date -f G) : DATABASE ERROR : Unable to run query : $query `n$Error[0]"
 	}
 	Finally {
 		$Connection.Close()
@@ -247,7 +247,7 @@ Function MSSQLQuery($Query) {
 		$DataSet.Tables[0]
 	}
 	Catch {
-		Write-Output "$((get-date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Unable to run query : $query `n$Error[0]" | out-file $DBErrorLog -append
+		VerboseOutput "$(Get-Date -f G) : DATABASE ERROR : Unable to run query : $query `n$Error[0]"
 	}
 	Finally {
 		$Connection.Close()

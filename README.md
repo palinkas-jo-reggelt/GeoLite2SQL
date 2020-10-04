@@ -83,6 +83,7 @@ Call GeoIPLookup(oClient.IPAddress, m_CountryCode, m_CountryName)
 ```
 
 ## HISTORY
+- v.19 combined db error log and debug log, made debug file email attachment optional (in config), will not email if over N mb (size option in config), housekeeping
 - v.18 fixed delete query, housekeeping
 - v.17 fixed bug with divide by 0, updated email function to attach debug log, housekeeping
 - v.16 fixed script runtime duration reporting

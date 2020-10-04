@@ -47,8 +47,10 @@ $SMTPServer           = "smtp.gmail.com"            #
 $SMTPAuthUser         = "notifier.acct@gmail.com"   #
 $SMTPAuthPass         = "supersecretpassword"       #
 $SMTPPort             =  587                        #
-$SSL                  = 'True'                      #
+$SSL                  = $True                       #
 $HTML                 = $False                      #
+$AttachDebugLog       = $True                       #
+$MaxAttachmentSize    = 10      # Size in MB        #
 #                                                   #
 ### MaxMind Download Token ##########################
 #                                                   #

@@ -92,6 +92,9 @@ If ((Test-Path $ToAddIPv4) -or (Test-Path $ToDelIPv4)){
 	VerboseOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Failed to delete old ToDelIPv4.csv and/or ToAddIPv4.csv"
 	VerboseOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script"
 	EmailOutput "GeoIP update failed to delete old files. See error log."
+	If (($AttachDebugLog) -and (((Get-Item $DebugLog).length/1MB) -gt $MaxAttachmentSize)){
+		EmailOutput "Debug log too large to email. Please see file in GeoLite2SQL script folder."
+	}
 	EmailResults
 	Exit
 }
@@ -108,6 +111,9 @@ Catch {
 	VerboseOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Unable to download and/or unzip : `n$Error[0]"
 	VerboseOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script"
 	EmailOutput "GeoIP update failed to download or unzip maxminds data zip file. See error log  : `n$Error[0]"
+	If (($AttachDebugLog) -and (((Get-Item $DebugLog).length/1MB) -gt $MaxAttachmentSize)){
+		EmailOutput "Debug log too large to email. Please see file in GeoLite2SQL script folder."
+	}
 	EmailResults
 	Exit
 }
@@ -126,6 +132,9 @@ If (-not (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV")){
 	VerboseOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : $PSScriptRoot\GeoLite2-Country-CSV does not exist"
 	VerboseOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script"
 	EmailOutput "GeoIP update failed at folder rename. See error log."
+	If (($AttachDebugLog) -and (((Get-Item $DebugLog).length/1MB) -gt $MaxAttachmentSize)){
+		EmailOutput "Debug log too large to email. Please see file in GeoLite2SQL script folder."
+	}
 	EmailResults
 	Exit
 }
@@ -296,6 +305,9 @@ If (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV"){
 		VerboseOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Update failed : `n$Error[0]"
 		VerboseOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script"
 		EmailOutput "GeoIP update failed at loading database. See debug log for error."
+		If (($AttachDebugLog) -and (((Get-Item $DebugLog).length/1MB) -gt $MaxAttachmentSize)){
+			EmailOutput "Debug log too large to email. Please see file in GeoLite2SQL script folder."
+		}
 		EmailResults
 		Exit
 	}
@@ -342,7 +354,7 @@ If (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV"){
 		EmailOutput "GeoIP database update SUCCESS. All records accounted for."
 		VerboseOutput "GeoIP database update SUCCESS. All records accounted for."
 	}
-	VerboseOutput "$(Get-Date -f G) : Email report sent."
+	VerboseOutput "$(Get-Date -f G) : Preparing email report."
 }
 
 <#########################################
@@ -356,6 +368,9 @@ Else {
 	EmailOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Unable to complete database load : MaxMind data doesn't exist."
 	EmailOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script"
 	EmailOutput "GeoIP update failed: MaxMind data doesn't exist. See error log."
+	If (($AttachDebugLog) -and (((Get-Item $DebugLog).length/1MB) -gt $MaxAttachmentSize)){
+		EmailOutput "Debug log too large to email. Please see file in GeoLite2SQL script folder."
+	}
 	EmailResults
 	Exit
 }
@@ -369,7 +384,7 @@ Else {
 <#  Now finish up with email results  #>
 EmailOutput " "
 EmailOutput " "
-EmailOutput "GeoIP update successful."
+EmailOutput "GeoIP update completed."
 EmailOutput " "
 
 $EndTime = (Get-Date -f G)
@@ -382,5 +397,9 @@ If (($OperationTime).Seconds -eq 1) {$ss = ""} Else {$ss = "s"}
 EmailOutput " "
 EmailOutput ("Completed update in {0:%h} hour$sh {0:%m} minute$sm {0:%s} second$ss" -f $OperationTime)
 VerboseOutput ("Completed update in {0:%h} hour$sh {0:%m} minute$sm {0:%s} second$ss" -f $OperationTime)
+
+If (($AttachDebugLog) -and (((Get-Item $DebugLog).length/1MB) -gt $MaxAttachmentSize)){
+	EmailOutput "Debug log too large to email. Please see file in GeoLite2SQL script folder."
+}
 
 EmailResults
