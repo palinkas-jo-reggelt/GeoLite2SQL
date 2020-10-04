@@ -56,6 +56,12 @@ Function EmailResults {
 	$SMTP.Send($Message)
 }
 
+<#######################################
+#                                      #
+#         CIDR CONVERSION CODE         #
+#                                      #
+#######################################>
+
 <#  https://www.ryandrane.com/2016/05/getting-ip-network-information-powershell/  #>
 Function Get-IPv4NetworkInfo {
 	Param
