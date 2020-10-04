@@ -49,10 +49,8 @@ Catch {
 #
 ############################>
 
-<#  Set start time  #>
-$StartScriptTime = (Get-Date -f G)
-VerboseOutput "`n$(Get-Date -f G) : GeoIP Update Start Script"
-EmailOutput "`n$(Get-Date -f G) : GeoIP Update Start Script"
+<#  Clear out any errors  #>
+$error.clear()
 
 <#  Set file locations  #>
 $MMcsv = "$PSScriptRoot\Script-Created-Files\CSV-MM.csv"
@@ -62,6 +60,16 @@ $ToDelIPv4 = "$PSScriptRoot\Script-Created-Files\ToDelIPv4.csv"
 $CountryBlocksIPV4 = "$PSScriptRoot\GeoLite2-Country-CSV\GeoLite2-Country-Blocks-IPv4.csv"
 $CountryLocations = "$PSScriptRoot\GeoLite2-Country-CSV\GeoLite2-Country-Locations-$CountryLocationLang.csv"
 $EmailBody = "$PSScriptRoot\Script-Created-Files\EmailBody.txt"
+$DebugLog = "$PSScriptRoot\DebugLog.log"
+
+<#	Delete old debug log before debugging  #>
+If (Test-Path $DebugLog) {Remove-Item -Force -Path $DebugLog}
+New-Item $DebugLog
+
+<#  Set start time  #>
+$StartScriptTime = (Get-Date -f G)
+VerboseOutput "`n$(Get-Date -f G) : GeoIP Update Start Script"
+EmailOutput "`n$(Get-Date -f G) : GeoIP Update Start Script"
 
 <#	Create folder for temporary script files if it doesn't exist  #>
 VerboseOutput "$(Get-Date -f G) : Create folder for temporary files"
@@ -179,7 +187,7 @@ If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") -and ($EntryCount -gt 0)){
 		$GeoIPObjects = Import-CSV -Path $ToDelIPv4 -Delimiter "," -Header network,geoname_id
 		VerboseOutput "$(Get-Date -f G) : Csv loaded, ready to delete records from database"
 		
-		$TotalLines = $GeoIPObjects.Count
+		$TotalLines = ($GeoIPObjects | Measure-Object).Count
 		$LinesToDel = $TotalLines
 		$LineCounter = 0
 		$StartTime = (Get-Date -f G)
@@ -187,7 +195,7 @@ If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") -and ($EntryCount -gt 0)){
 		$GeoIPObjects | ForEach-Object {
 
 			If ($VerboseConsole){
-				$LineCounter = $LineCounter + 1
+				$LineCounter++
 			
 				$CurrentTime = (Get-Date -f G)
 				$OperationTime = New-Timespan $StartTime $CurrentTime
@@ -200,7 +208,10 @@ If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") -and ($EntryCount -gt 0)){
 			$Network = $_.network
 			$GeoNameID = $_.geoname_id
 			If ($Network -match $RegexNetwork){
-				$Query = "DELETE FROM $GeoIPTable WHERE network='$Network'"
+				Get-IPv4NetworkInfo -CIDRAddress $Network | ForEach-Object {
+					$MaxIP = $_.BroadcastAddress
+				}
+				$Query = "DELETE FROM $GeoIPTable WHERE maxipaton = INET_ATON('$MaxIP')"
 				RunSQLQuery($Query)
 			}
 		}
@@ -211,7 +222,7 @@ If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") -and ($EntryCount -gt 0)){
 		$GeoIPObjects = Import-CSV -Path $ToAddIPv4 -Delimiter "," -Header network,geoname_id
 		VerboseOutput "$(Get-Date -f G) : Csv loaded, ready to add updated records to database"
 
-		$TotalLines = $GeoIPObjects.Count
+		$TotalLines = ($GeoIPObjects | Measure-Object).Count
 		$LinesToAdd = $TotalLines - 1
 		$LineCounter = 0
 		$StartTime = (Get-Date -f G)
@@ -219,7 +230,7 @@ If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") -and ($EntryCount -gt 0)){
 		$GeoIPObjects | ForEach-Object {
 
 			If ($VerboseConsole){
-				$LineCounter = $LineCounter + 1
+				$LineCounter++
 			
 				$CurrentTime = (Get-Date -f G)
 				$OperationTime = New-Timespan $StartTime $CurrentTime
@@ -255,14 +266,14 @@ If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") -and ($EntryCount -gt 0)){
 		$GeoIPNameObjects = Import-CSV -Path $CountryLocations -Delimiter "," -Header geoname_id,locale_code,continent_code,continent_name,country_iso_code,country_name,is_in_european_union
 		VerboseOutput "$(Get-Date -f G) : Country name csv loaded, ready to update records in database"
 
-		$TotalLines = $GeoIPNameObjects.Count
+		$TotalLines = ($GeoIPNameObjects | Measure-Object).Count
 		$LineCounter = 0
 		$StartTime = (Get-Date -f G)
 
 		$GeoIPNameObjects | ForEach-Object {
 
 			If ($VerboseConsole){
-				$LineCounter = $LineCounter + 1
+				$LineCounter++
 			
 				$CurrentTime = (Get-Date -f G)
 				$OperationTime = New-Timespan $StartTime $CurrentTime
@@ -285,7 +296,7 @@ If ((Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") -and ($EntryCount -gt 0)){
 	Catch {
 		VerboseOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Incremental update failed : `n$Error[0]"
 		VerboseOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script"
-		EmailOutput "GeoIP update failed at loading database. See error log."
+		EmailOutput "GeoIP update failed at loading database. See debug log for error."
 		EmailResults
 		Exit
 	}

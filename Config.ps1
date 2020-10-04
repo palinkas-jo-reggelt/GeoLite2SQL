@@ -42,11 +42,13 @@ $SQLSSL               = 'none'                      #
 #                                                   #
 $EmailFrom            = "notifier.acct@gmail.com"   #
 $EmailTo              = "me@mydomain.com"           #
+$Subject              = 'GeoIP Update'              #
 $SMTPServer           = "smtp.gmail.com"            #
 $SMTPAuthUser         = "notifier.acct@gmail.com"   #
 $SMTPAuthPass         = "supersecretpassword"       #
 $SMTPPort             =  587                        #
 $SSL                  = 'True'                      #
+$HTML                 = $False                      #
 #                                                   #
 ### MaxMind Download Token ##########################
 #                                                   #
@@ -54,7 +56,7 @@ $LicenseKey           = 'SuperSecretLicenseKey'     #
 $CountryLocationLang  = 'en'                        #
 #                                                   #
 ### Verbosity #######################################
-#                                                   #
+# You can choose one, both or neither               #
 $VerboseConsole       = $True   # Debug to screen   #
 $VerboseFile          = $True   # Debug to file     #
 #                                                   #

@@ -45,15 +45,16 @@ Catch {
 #######################################>
 
 Function EmailResults {
-	$Subject = "GeoIP Update Results" 
 	$Body = (Get-Content -Path $EmailBody | Out-String )
-	$SMTPClient = New-Object Net.Mail.SmtpClient($SmtpServer, $SMTPPort) 
-	$SMTPClient.EnableSsl = [System.Convert]::ToBoolean($SSL)
-	$SMTPClient.Credentials = New-Object System.Net.NetworkCredential($SMTPAuthUser, $SMTPAuthPass); 
-	$SMTPClient.Send($EmailFrom, $EmailTo, $Subject, $Body)
+	If (Test-Path $DebugLog){$Attachment = New-Object System.Net.Mail.Attachment $DebugLog}
+	$Message = New-Object System.Net.Mail.Mailmessage $EmailFrom, $EmailTo, $Subject, $Body
+	$Message.IsBodyHTML = $HTML
+	If (Test-Path $DebugLog){$Message.Attachments.Add($DebugLog)}
+	$SMTP = New-Object System.Net.Mail.SMTPClient $SMTPServer,$SMTPPort
+	$SMTP.EnableSsl = $SSL
+	$SMTP.Credentials = New-Object System.Net.NetworkCredential($SMTPAuthUser, $SMTPAuthPass); 
+	$SMTP.Send($Message)
 }
-
-
 
 <#  https://www.ryandrane.com/2016/05/getting-ip-network-information-powershell/  #>
 Function Get-IPv4NetworkInfo {
@@ -477,5 +478,6 @@ Function VerboseOutput($StringText){
 
 Function EmailOutput($StringText){
 	$EmailBody = "$PSScriptRoot\Script-Created-Files\EmailBody.txt"
+	$FileAttachment = $DebugLog
 	Write-Output $StringText | Out-File $EmailBody -Encoding ASCII -Append
 }

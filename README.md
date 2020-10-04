@@ -83,6 +83,7 @@ Call GeoIPLookup(oClient.IPAddress, m_CountryCode, m_CountryName)
 ```
 
 ## HISTORY
+- v.17 fixed bug with divide by 0, updated email function to attach debug log, housekeeping
 - v.16 fixed script runtime duration reporting
 - v.15 pickup missing geoname_id using ip-api.com json (MaxMind leaves a couple blank for some reason)
 - v.14 Added debugging with output options to console or file; moved database/scheduled task creation to SetupGeoLite2SQL.ps1; cleaned up and simplified GeoLite2SQL.ps1
