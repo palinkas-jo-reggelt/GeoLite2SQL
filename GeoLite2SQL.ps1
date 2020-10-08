@@ -202,6 +202,7 @@ If (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV"){
 
 		$GeoIPObjects | ForEach-Object {
 
+			<#  Progress Counter  #>
 			If ($VerboseConsole){
 				$LineCounter++
 			
@@ -216,15 +217,26 @@ If (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV"){
 			$Network = $_.network
 			$GeoNameID = $_.geoname_id
 			If ($Network -match $RegexNetwork){
-				Get-IPv4NetworkInfo -CIDRAddress $Network | ForEach-Object {
-					$MaxIP = $_.BroadcastAddress
-				}
+				$MaxIP = (Get-IPv4NetworkInfo -CIDRAddress $Network).BroadcastAddress
 				$Query = "DELETE FROM $GeoIPTable WHERE maxipaton = $(DBIpStringToIntField $MaxIP)"
 				RunSQLQuery($Query)
 			}
 		}
 		VerboseOutput "$(Get-Date -f G) : Finished deleting records from database"
 
+	}
+	Catch {
+		VerboseOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Update failed : `n$Error[0]"
+		VerboseOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script"
+		EmailOutput "GeoIP update failed at deleting old network records from database. See debug log for error."
+		If (($AttachDebugLog) -and (((Get-Item $DebugLog).length/1MB) -gt $MaxAttachmentSize)){
+			EmailOutput "Debug log too large to email. Please see file in GeoLite2SQL script folder."
+		}
+		EmailResults
+		Exit
+	}
+
+	Try {
 		<#  Read ToAddIPv4 csv file, convert CIDR network address to lowest and highest IPs in range, then insert into database  #>
 		VerboseOutput "$(Get-Date -f G) : Preparing to add new records to database from comparison csv"
 		$GeoIPObjects = Import-CSV -Path $ToAddIPv4 -Delimiter "," -Header network,geoname_id
@@ -269,6 +281,19 @@ If (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV"){
 		}
 		VerboseOutput "$(Get-Date -f G) : Finished adding updated records to database"
 
+	}
+	Catch {
+		VerboseOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Update failed : `n$Error[0]"
+		VerboseOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script"
+		EmailOutput "GeoIP update failed at loading new network records into database. See debug log for error."
+		If (($AttachDebugLog) -and (((Get-Item $DebugLog).length/1MB) -gt $MaxAttachmentSize)){
+			EmailOutput "Debug log too large to email. Please see file in GeoLite2SQL script folder."
+		}
+		EmailResults
+		Exit
+	}
+
+	Try {
 		<# 	Read country info csv and insert into database  #>
 		VerboseOutput "$(Get-Date -f G) : Loading updated MaxMind country name CSV"
 		$GeoIPNameObjects = Import-CSV -Path $CountryLocations -Delimiter "," -Header geoname_id,locale_code,continent_code,continent_name,country_iso_code,country_name,is_in_european_union
@@ -300,11 +325,12 @@ If (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV"){
 			}
 		}
 		VerboseOutput "$(Get-Date -f G) : Finished updating country name records in database"
+		
 	}
 	Catch {
 		VerboseOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Update failed : `n$Error[0]"
 		VerboseOutput "$((Get-Date).ToString(`"yy/MM/dd HH:mm:ss.ff`")) : ERROR : Quitting Script"
-		EmailOutput "GeoIP update failed at loading database. See debug log for error."
+		EmailOutput "GeoIP update failed at loading country name data into database. See debug log for error."
 		If (($AttachDebugLog) -and (((Get-Item $DebugLog).length/1MB) -gt $MaxAttachmentSize)){
 			EmailOutput "Debug log too large to email. Please see file in GeoLite2SQL script folder."
 		}
