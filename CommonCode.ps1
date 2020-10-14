@@ -474,11 +474,11 @@ Function DBFormatDate() {
 
 Function VerboseOutput($StringText){
 	If ($VerboseConsole){
-		Write-Host $StringText
+		Write-Host ("$((Get-Date).ToString('HH:mm:ss')) : {0:mm\:ss} : $StringText" -f (New-Timespan $Timer))
 	}
 	If ($VerboseFile){
 		$DebugLog = "$PSScriptRoot\DebugLog.log"
-		Write-Output $StringText | Out-File $DebugLog -Append
+		Write-Output ("$((Get-Date).ToString('HH:mm:ss')) : {0:mm\:ss} : $StringText" -f (New-Timespan $Timer)) | Out-File $DebugLog -Append
 	}
 }
 
