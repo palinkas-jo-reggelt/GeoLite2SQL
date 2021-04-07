@@ -20,7 +20,7 @@
 .EXAMPLE
 	Example query to return country code and country name from database:
 	
-		SELECT country_iso_code, country_name 
+		SELECT country_code, country_name 
 		FROM (
 			SELECT * 
 			FROM geocountry 
@@ -38,7 +38,7 @@ Try {
 	.("$PSScriptRoot\GeoLite2SQL-Config.ps1")
 }
 Catch {
-	Write-Output "$(Get-Date -f G) : ERROR : Unable to load supporting PowerShell Scripts : $($Error[0])" | Out-File "$PSScriptRoot\PSError.log" -Append
+	Write-Output "$(Get-Date -f G) : [ERROR] : Unable to load supporting PowerShell Scripts : $($Error[0])" | Out-File "$PSScriptRoot\PSError.log" -Append
 }
 
 <###   FUNCTIONS   ###>
@@ -60,6 +60,9 @@ Function Email ($Email) {
 }
 
 Function EmailResults {
+	If ($UseHTML) {
+		If ($UseHTML) {Write-Output "</table></body></html>" | Out-File $EmailBody -Encoding ASCII -Append}
+	}
 	If (($AttachDebugLog) -and (Test-Path $DebugLog)) {
 		If (((Get-Item $DebugLog).length/1MB) -gt $MaxAttachmentSize) {
 			Email "Debug log too large to email. Please see file in GeoLite2SQL script folder."
@@ -117,7 +120,7 @@ Function MySQLQuery($Query) {
 		$DataSet.Tables[0]
 	}
 	Catch {
-		Debug "DATABASE ERROR : Unable to run query : $Query $($Error[0])"
+		Debug "[ERROR] DATABASE ERROR : Unable to run query : $Query $($Error[0])"
 	}
 	Finally {
 		$Connection.Close()
@@ -219,12 +222,32 @@ If ($UseHTML) {
 <#  Set start time  #>
 $StartScriptTime = Get-Date
 Debug "GeoIP Update Start"
+Email "GeoIP update Start: $(Get-Date -f G)"
+Email " "
 
 <#	Delete old files if exist  #>
 Debug "----------------------------"
 Debug "Deleting old files"
-If (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") {Remove-Item -Recurse -Force "$PSScriptRoot\GeoLite2-Country-CSV"}
-If (Test-Path "$PSScriptRoot\Script-Created-Files\GeoLite2-Country-CSV.zip") {Remove-Item -Force -Path "$PSScriptRoot\Script-Created-Files\GeoLite2-Country-CSV.zip"}
+If (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") {
+	Try {
+		Remove-Item -Recurse -Force "$PSScriptRoot\GeoLite2-Country-CSV"
+		Debug "Folder $PSScriptRoot\GeoLite2-Country-CSV successfully deleted"
+	}
+	Catch {
+		Debug "[INFO] : Unable to delete old MaxMind data : $($Error[0])"
+		Email "[INFO] Failed to delete old MaxMind data. See error log."
+	}
+}
+If (Test-Path "$PSScriptRoot\Script-Created-Files\GeoLite2-Country-CSV.zip") {
+	Try {
+		Remove-Item -Force -Path "$PSScriptRoot\Script-Created-Files\GeoLite2-Country-CSV.zip"
+		Debug "Old zip file $PSScriptRoot\Script-Created-Files\GeoLite2-Country-CSV.zip successfully deleted"
+	}
+	Catch {
+		Debug "[INFO] : Unable to delete old MaxMind zip file : $($Error[0])"
+		Email "[INFO] Failed to delete old MaxMind zip file. See error log."
+	}
+}
 
 <#	Download latest GeoLite2 data and unzip  #>
 Debug "----------------------------"
@@ -234,12 +257,12 @@ Try {
 	$url = "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&license_key=$LicenseKey&suffix=zip"
 	$output = "$PSScriptRoot\Script-Created-Files\GeoLite2-Country-CSV.zip"
 	Start-BitsTransfer -Source $url -Destination $output -ErrorAction Stop
-	Debug "MaxMind data successfully downloaded MaxMind data in $(ElapsedTime $Timer)"
-	Email "[OK] MaxMind data successfully downloaded"
+	Debug "MaxMind data successfully downloaded in $(ElapsedTime $Timer)"
+	Email "[OK] MaxMind data downloaded"
 }
 Catch {
-	Debug "ERROR : Unable to download MaxMind data : $($Error[0])"
-	Debug "ERROR : Quitting Script"
+	Debug "[ERROR] : Unable to download MaxMind data : $($Error[0])"
+	Debug "[ERROR] : Quitting Script"
 	Email "[ERROR] Failed to download MaxMind data. See error log."
 	EmailResults
 	Exit
@@ -249,11 +272,11 @@ $Timer = Get-Date
 Try {
 	Expand-Archive $output -DestinationPath $PSScriptRoot -ErrorAction Stop
 	Debug "MaxMind data successfully unzipped in $(ElapsedTime $Timer)"
-	Email "[OK] MaxMind data successfully unzipped"
+	Email "[OK] MaxMind data unzipped"
 }
 Catch {
-	Debug "ERROR : Unable to unzip MaxMind data : $($Error[0])"
-	Debug "ERROR : Quitting Script"
+	Debug "[ERROR] : Unable to unzip MaxMind data : $($Error[0])"
+	Debug "[ERROR] : Quitting Script"
 	Email "[ERROR] Failed to unzip MaxMind data. See error log."
 	EmailResults
 	Exit
@@ -269,8 +292,8 @@ Get-ChildItem $PSScriptRoot | Where-Object {$_.PSIsContainer -eq $true} | ForEac
 
 <# 	If new downloaded folder does not exist or could not be renamed, then throw error  #>
 If (-not (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV")){
-	Debug "ERROR : Unable to rename data folder : $($Error[0])"
-	Debug "ERROR : Quitting Script"
+	Debug "[ERROR] : Unable to rename data folder : $($Error[0])"
+	Debug "[ERROR] : Quitting Script"
 	Email "[ERROR] Failed to rename data folder. See error log."
 	EmailResults
 	Exit
@@ -282,12 +305,29 @@ Try {
 	Debug "Locations CSV successfully renamed"
 }
 Catch {
-	Debug "ERROR : Unable to rename locations CSV : $($Error[0])"
-	Debug "ERROR : Quitting Script"
+	Debug "[ERROR] : Unable to rename locations CSV : $($Error[0])"
+	Debug "[ERROR] : Quitting Script"
 	Email "[ERROR] Failed to rename locations CSV. See error log."
 	EmailResults
 	Exit
 }
+
+<#  Count database records  #>
+Debug "----------------------------"
+Debug "Counting database records for comparison"
+$Timer = Get-Date
+$GCQuery = "SELECT COUNT(*) AS count FROM geocountry"
+MySQLQuery $GCQuery | ForEach {
+	$CountDB = $_.count
+}
+Debug "Counted $(($CountDB).ToString('#,###')) database records in $(ElapsedTime $Timer)"
+
+<#  Count CSV records  #>
+Debug "----------------------------"
+Debug "Counting CSV records for comparison"
+$Timer = Get-Date
+$CountIPv4 = (Get-Content $CountryBlocksIPV4 | Where {$_ -match "^\d"}).Count
+Debug "Counted $(($CountIPv4).ToString('#,###')) IPv4 records in new CSV in $(ElapsedTime $Timer)"
 
 <#  Convert CSV for import  #>
 Debug "----------------------------"
@@ -299,54 +339,54 @@ Try {
 	Email "[OK] Converted country block CSV"
 }
 Catch {
-	Debug "ERROR : Unable to convert country IP CSV : $($Error[0])"
-	Debug "ERROR : Quitting Script"
+	Debug "[ERROR] : Unable to convert country IP CSV : $($Error[0])"
+	Debug "[ERROR] : Quitting Script"
 	Email "[ERROR] Failed to convert country IP CSV. See error log."
 	EmailResults
 	Exit
 }
 
-<#  Add tables if they don't exist  #>
+<#  Drop and add database tables  #>
 Debug "----------------------------"
 Debug "Drop and recreate database tables"
 Try {
 	$GCQuery = "
-	DROP TABLE IF EXISTS geocountry;
-	CREATE TABLE geocountry (
-		network_start_integer BIGINT,
-		network_last_integer BIGINT,
-		geoname_id BIGINT,
-		registered_country_geoname_id BIGINT,
-		represented_country_geoname_id BIGINT,
-		is_anonymous_proxy TINYINT,
-		is_satellite_provider TINYINT,
-		KEY geoname_id (geoname_id),
-		KEY network_start_integer (network_start_integer),
-		PRIMARY KEY network_last_integer (network_last_integer)
-	) ENGINE=InnoDB DEFAULT CHARSET=utf8
+		DROP TABLE IF EXISTS geocountry;
+		CREATE TABLE geocountry (
+			network_start_integer BIGINT,
+			network_last_integer BIGINT,
+			geoname_id BIGINT,
+			registered_country_geoname_id BIGINT,
+			represented_country_geoname_id BIGINT,
+			is_anonymous_proxy TINYINT,
+			is_satellite_provider TINYINT,
+			KEY geoname_id (geoname_id),
+			KEY network_start_integer (network_start_integer),
+			PRIMARY KEY network_last_integer (network_last_integer)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8
 	"
 	MySQLQuery $GCQuery
 
 	$GLQuery = "
-	DROP TABLE IF EXISTS geolocations;
-	CREATE TABLE geolocations (                       
-		geoname_id BIGINT,
-		locale_code TINYTEXT,
-		continent_code TINYTEXT,
-		continent_name TINYTEXT,
-		country_code TINYTEXT,
-		country_name TINYTEXT,
-		is_in_european_union TINYINT,
-		KEY geoname_id (geoname_id)
-	) ENGINE=InnoDB DEFAULT CHARSET=utf8
+		DROP TABLE IF EXISTS geolocations;
+		CREATE TABLE geolocations (                       
+			geoname_id BIGINT,
+			locale_code TINYTEXT,
+			continent_code TINYTEXT,
+			continent_name TINYTEXT,
+			country_code TINYTEXT,
+			country_name TINYTEXT,
+			is_in_european_union TINYINT,
+			KEY geoname_id (geoname_id)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8
 	"
 	MySQLQuery $GLQuery
 	Debug "Database tables successfully dropped and created"
-	Email "[OK] Database tables successfully dropped"
+	Email "[OK] Database tables dropped & recreated"
 }
 Catch {
-	Debug "ERROR : Unable to drop/create database tables : $($Error[0])"
-	Debug "ERROR : Quitting Script"
+	Debug "[ERROR] : Unable to drop/create database tables : $($Error[0])"
+	Debug "[ERROR] : Quitting Script"
 	Email "[ERROR] Failed to drop/create database tables. See error log."
 	EmailResults
 	Exit
@@ -358,13 +398,14 @@ $Timer = Get-Date
 Debug "----------------------------"
 Debug "Import country IP information"
 Try {
-	& $MySQLImport -h localhost -P 3306 -u $MySQLUserName $MySQLPasswordString --local -v --ignore-lines=1 --fields-terminated-by="," --lines-terminated-by="\n" $MySQLDatabase $CountryBlocksConverted
-	Debug "Country IP data imported in $(ElapsedTime $Timer)"
+	$ImportIP = & $MySQLImport -h localhost -P 3306 -u $MySQLUserName $MySQLPasswordString --local -v --ignore-lines=1 --fields-terminated-by="," --lines-terminated-by="\n" $MySQLDatabase $CountryBlocksConverted | Out-String | Where {$_ -match "Records: (?<numrec>\d+)"}
+	[int]$CountImport = $Matches.numrec
+	Debug "$(($CountImport).ToString('#,###')) country IP records imported in $(ElapsedTime $Timer)"
 	Email "[OK] Country IP data imported"
 }
 Catch {
-	Debug "ERROR : Unable to convert country IP CSV : $($Error[0])"
-	Debug "ERROR : Quitting Script"
+	Debug "[ERROR] : Unable to convert country IP CSV : $($Error[0])"
+	Debug "[ERROR] : Quitting Script"
 	Email "[ERROR] Failed to convert country IP CSV. See error log."
 	EmailResults
 	Exit
@@ -375,13 +416,14 @@ $Timer = Get-Date
 Debug "----------------------------"
 Debug "Import country name information"
 Try {
-	& $MySQLImport -h localhost -P 3306 -u $MySQLUserName $MySQLPasswordString --local -v --ignore-lines=1 --fields-terminated-by="," --lines-terminated-by="\n" $MySQLDatabase $LocationsRenamed
-	Debug "Country name data imported in $(ElapsedTime $Timer)"
+	$ImportCo = & $MySQLImport -h localhost -P 3306 -u $MySQLUserName $MySQLPasswordString --local -v --ignore-lines=1 --fields-terminated-by="," --lines-terminated-by="\n" $MySQLDatabase $LocationsRenamed | Out-String | Where {$_ -match "Records: (?<numrec>\d+)"}
+	[int]$CountCo = $Matches.numrec
+	Debug "$(($CountCo).ToString('#,###')) country name records imported in $(ElapsedTime $Timer)"
 	Email "[OK] Country name data imported"
 }
 Catch {
-	Debug "ERROR : Unable to convert country IP CSV : $($Error[0])"
-	Debug "ERROR : Quitting Script"
+	Debug "[ERROR] : Unable to convert country IP CSV : $($Error[0])"
+	Debug "[ERROR] : Quitting Script"
 	Email "[ERROR] Failed to convert country IP CSV. See error log."
 	EmailResults
 	Exit
@@ -398,10 +440,21 @@ CheckForUpdates
 
 <#  Now finish up with email results  #>
 Debug "----------------------------"
+If ($CountImport -eq $CountIPv4) {
+	Email "[OK] Successfully imported $(($CountImport).ToString('#,###')) records in $(ElapsedTime $StartScriptTime)"
+	Debug "Successfully imported $(($CountImport).ToString('#,###')) records in $(ElapsedTime $StartScriptTime)"
+} Else {
+	Email "[ERROR] record count mismatch:"
+	Email "$(($CountImport).ToString('#,###')) records imported to database"
+	Email "$(($CountIPv4).ToString('#,###')) records in MaxMind CSV"
+	Email "Completed update in $(ElapsedTime $StartScriptTime)"
+	Debug "[ERROR] record count mismatch:"
+	Debug "$(($CountImport).ToString('#,###')) records imported to database"
+	Debug "$(($CountIPv4).ToString('#,###')) records in MaxMind CSV"
+	Debug "Completed update in $(ElapsedTime $StartScriptTime)"
+}
 Debug "GeoIP update finished"
 Email " "
 Email "GeoIP update finish: $(Get-Date -f G)"
-Email "Successfully completed update in $(ElapsedTime $StartScriptTime)"
-Debug "Successfully completed update in $(ElapsedTime $StartScriptTime)"
-If ($UseHTML) {Write-Output "</table></body></html>" | Out-File $EmailBody -Encoding ASCII -Append}
+
 EmailResults
