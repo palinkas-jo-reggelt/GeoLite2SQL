@@ -124,6 +124,54 @@ Function MySQLQuery($Query) {
 	}
 }
 
+Function CheckForUpdates {
+	Debug "----------------------------"
+	Debug "Checking for script update at GitHub"
+	$GitHubVersion = $LocalVersion = $NULL
+	$GetGitHubVersion = $GetLocalVersion = $False
+	$GitHubVersionTries = 1
+	Do {
+		Try {
+			$GitHubVersion = [decimal](Invoke-WebRequest -UseBasicParsing -Method GET -URI https://raw.githubusercontent.com/palinkas-jo-reggelt/GeoLite2SQL/main/version.txt).Content
+			$GetGitHubVersion = $True
+		}
+		Catch {
+			Debug "[ERROR] Obtaining GitHub version : Try $GitHubVersionTries : Obtaining version number: $($Error[0])"
+		}
+		$GitHubVersionTries++
+	} Until (($GitHubVersion -gt 0) -or ($GitHubVersionTries -eq 6))
+	If (Test-Path "$PSScriptRoot\version.txt") {
+		$LocalVersion = [decimal](Get-Content "$PSScriptRoot\version.txt")
+		$GetLocalVersion = $True
+	}
+	If (($GetGitHubVersion) -and ($GetLocalVersion)) {
+		If ($LocalVersion -lt $GitHubVersion) {
+			Debug "[INFO] Upgrade to version $GitHubVersion available at https://github.com/palinkas-jo-reggelt/GeoLite2SQL"
+			If ($UseHTML) {
+				Email "[INFO] Upgrade to version $GitHubVersion available at <a href=`"https://github.com/palinkas-jo-reggelt/GeoLite2SQL`">GitHub</a>"
+			} Else {
+				Email "[INFO] Upgrade to version $GitHubVersion available at https://github.com/palinkas-jo-reggelt/GeoLite2SQL"
+			}
+		} Else {
+			Debug "Backup & Upload script is latest version: $GitHubVersion"
+		}
+	} Else {
+		If ((-not($GetGitHubVersion)) -and (-not($GetLocalVersion))) {
+			Debug "[ERROR] Version test failed : Could not obtain either GitHub nor local version information"
+			Email "[ERROR] Version check failed"
+		} ElseIf (-not($GetGitHubVersion)) {
+			Debug "[ERROR] Version test failed : Could not obtain version information from GitHub"
+			Email "[ERROR] Version check failed"
+		} ElseIf (-not($GetLocalVersion)) {
+			Debug "[ERROR] Version test failed : Could not obtain local install version information"
+			Email "[ERROR] Version check failed"
+		} Else {
+			Debug "[ERROR] Version test failed : Unknown reason - file issue at GitHub"
+			Email "[ERROR] Version check failed"
+		}
+	}
+}
+
 
 <############################
 #
@@ -344,6 +392,9 @@ Catch {
 #  FINISH UP
 #
 #########################################>
+
+<#  Check for updates  #>
+CheckForUpdates
 
 <#  Now finish up with email results  #>
 Debug "----------------------------"
