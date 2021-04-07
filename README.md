@@ -8,99 +8,39 @@ MaxMind no longer allows anonymous downloads of the GeoLite2 databases. You must
 https://blog.maxmind.com/2019/12/18/significant-changes-to-accessing-and-using-geolite2-databases/
 
 ## FUNCTIONALITY
-1) If geoip table does not exist, it gets created
-2) Deletes old files
-3) Downloads MaxMinds geolite2 cvs data as zip file, uncompresses it, then renames the folder
-4) Compares new and old data for incremental changes
-5) Reads IPv4 cvs data, then calculates the lowest and highest IP from each network in the database
-6) Deletes obsolete records
-7) Inserts lowest and highest IP in range and geoname_id from IPv4 cvs file
-8) Reads geo-name cvs file and updates each record with country code and country name based on the geoname_id
-9) Creates scheduled task for weekly updates
-10) Includes various error checking
-11) Email notification on completion or error
+1) If geoip tables do not exist, they get created
+2) Downloads MaxMinds geolite2 cvs data as zip file, uncompresses it, then renames the folder
+3) Converts IPv4 cvs IPs into integer using MaxMind's geoip2-csv-converter (included) https://github.com/maxmind/geoip2-csv-converter
+4) Imports IPv4 cvs and country name cvs files into MySQL
+5) Includes various error checking
+6) Email notification on completion or error
 
 ## INSTRUCTIONS
 1) Register for a GeoLite2 account here: https://www.maxmind.com/en/geolite2/signup
 2) After successful login to your MaxMind account, generate a new license key (Services > License Key > Generate New Key)
 3) Create folder to contain scripts and MaxMinds data
-4) Modify user variables in Config.ps1
-5) Run SetupGeoLite2SQL.ps1 to create database table and scheduled task
-6) First time run can be either from powershell console or from scheduled task.
+4) Rename GeoLite2SQL-Config.dist.ps1 to GeoLite2SQL-Config.ps1 and modify the config variables.
+5) First time run can be either from powershell console or from scheduled task.
 
 ## NOTES
 Run every Wednesday via task scheduler (MaxMinds releases updates on Tuesdays)
 
-Requires Powershell version 5.1 or above
-	
 ## EXAMPLE QUERY
 Returns countrycode and countryname from a given IP address:
 
 MySQL	
 ```
-SELECT countrycode, countryname FROM (SELECT * FROM geo_ip WHERE INET_ATON('125.64.94.220') <= maxipaton LIMIT 1) AS A WHERE minipaton <= INET_ATON('125.64.94.220')
+SELECT country_code, country_name
+FROM (
+	SELECT * 
+	FROM geocountry 
+	WHERE INET_ATON('212.186.81.105') <= network_last_integer
+	LIMIT 1
+	) AS a 
+INNER JOIN geolocations AS b on a.geoname_id = b.geoname_id
+WHERE network_start_integer <= INET_ATON('212.186.81.105')
+LIMIT 1;
 ```
 
-MSSQL	
-```
-SELECT countrycode, countryname FROM (SELECT * FROM geo_ip WHERE dbo.ipStringToInt('125.64.94.220') <= maxipaton LIMIT 1) AS A WHERE minipaton <= dbo.ipStringToInt('125.64.94.220')
-```
-
-## hMailServer VBS
-Subroutine (credit to SorenR for error checking, knowledge and motivation, among other things):
-```
-Sub GeoIPLookup(ByVal sIPAddress, ByRef m_CountryCode, ByRef m_CountryName)
-    Dim oRecord, oConn : Set oConn = CreateObject("ADODB.Connection")
-    oConn.Open "Driver={MariaDB ODBC 3.0 Driver}; Server=localhost; Database=geoip; User=geoip; Password=supersecretpassword;"
-
-    If oConn.State <> 1 Then
-'       EventLog.Write( "Sub GeoIPLookup - ERROR: Could not connect to database" )
-        WScript.Echo( "Sub GeoIPLookup - ERROR: Could not connect to database" )
-        m_CountryCode = "XX"
-        m_CountryName = "ERROR"
-        Exit Sub
-    End If
-
-    m_CountryCode = "NX"
-    m_CountryName = "NOT FOUND"
-
-    Set oRecord = oConn.Execute("SELECT countrycode, countryname FROM (SELECT * FROM geo_ip WHERE INET_ATON('" & sIPAddress & "') <= maxipaton LIMIT 1) AS A WHERE minipaton <= INET_ATON('" & sIPAddress & "')")
-    Do Until oRecord.EOF
-        m_CountryCode = oRecord("countrycode")
-        m_CountryName = oRecord("countryname")
-        oRecord.MoveNext
-    Loop
-    oConn.Close
-    Set oRecord = Nothing
-End Sub
-```
-
-Call Sub:
-```
-'	GeoIP Lookup
-Dim m_CountryCode, m_CountryName
-Call GeoIPLookup(oClient.IPAddress, m_CountryCode, m_CountryName)
-```
-
-## HISTORY
-- v.21 debug housekeeping
-- v.20 housekeeping
-- v.19 combined db error log and debug log, made debug file email attachment optional (in config), will not email if over N mb (size option in config), housekeeping
-- v.18 fixed delete query, housekeeping
-- v.17 fixed bug with divide by 0, updated email function to attach debug log, housekeeping
-- v.16 fixed script runtime duration reporting
-- v.15 pickup missing geoname_id using ip-api.com json (MaxMind leaves a couple blank for some reason)
-- v.14 Added debugging with output options to console or file; moved database/scheduled task creation to SetupGeoLite2SQL.ps1; cleaned up and simplified GeoLite2SQL.ps1
-- v.13 Minor clean up; Renamed GeoLite2DB.ps1 to GeoLite2SQL.ps1;
-- v.12 Added MSSQL support; Added some console information about process task steps. Renamed GeoLite2Mysql.ps1 to GeoLite2DB.ps1 to be database independent
-- v.11 fixed logical flow - network comparison is made directly between the database and the new MaxMind csv, so it doesn't matter if you skipped a week or a year updating. More efficient data flow. 
-- v.10 fixed dowload url for new MaxMind API access; also fixed an issue renaming the extracted data folder
-- v.09 fixed duration time display at success email notification
-- v.08 cleaned up error notifications on initial loading; cleaned up email result body; included report total operation time in email result
-- v.07 added column width formatting to email notification plus more and useful information; email report is meaningful more than "success/fail"
-- v.06 housekeeping
-- v.05 added create scheduled task and email notification
-- v.04 bug fixes
-- v.03 bug fixes
-- v.02 added incremental update and error checking
-- v.01 first commit
+## Thanks
+Many thanks to @SorenRR for providing the ridiculously simple yet completely overlooked MySQLImport concept vs the way I was doing it before.
