@@ -9,9 +9,9 @@
 .FUNCTIONALITY
 	1) If geoip table does not exist, it gets created
 	2) Deletes old files if existing
-	3) Downloads MaxMinds geolite2 cvs data and converts it
+	3) Downloads MaxMinds geolite2 csv data and converts it
 	4) Loads data into database
-	5) Feedback on console and by email on weekly updates.
+	5) Feedback on console and by email on weekly updates
 
 .NOTES
 	
@@ -60,6 +60,9 @@ Function Email ($Email) {
 }
 
 Function EmailResults {
+	Debug "GeoIP update finished"
+	Email " "
+	Email "GeoIP update finish: $(Get-Date -f G)"
 	If ($UseHTML) {
 		If ($UseHTML) {Write-Output "</table></body></html>" | Out-File $EmailBody -Encoding ASCII -Append}
 	}
@@ -176,11 +179,7 @@ Function CheckForUpdates {
 }
 
 
-<############################
-#
-#       BEGIN SCRIPT
-#
-############################>
+<###   BEGIN SCRIPT   ###>
 
 <#  Clear out any errors  #>
 $Error.Clear()
@@ -203,8 +202,12 @@ If (Test-Path $DebugLog) {Remove-Item -Force -Path $DebugLog}
 If (Test-Path $EmailBody) {Remove-Item -Force -Path $EmailBody}
 New-Item $DebugLog
 New-Item $EmailBody
+
+<#  Fill debug log header  #>
 Write-Output "::: $UploadName Backup Routine $(Get-Date -f D) :::" | Out-File $DebugLog -Encoding ASCII -Append
 Write-Output " " | Out-File $DebugLog -Encoding ASCII -Append
+
+<#  Fill email header  #>
 If ($UseHTML) {
 	Write-Output "
 		<!DOCTYPE html><html>
@@ -225,7 +228,10 @@ Debug "GeoIP Update Start"
 Email "GeoIP update Start: $(Get-Date -f G)"
 Email " "
 
-<#	Delete old files if exist  #>
+<#  Check for updates  #>
+CheckForUpdates
+
+<#	Delete old MaxMind files if exist  #>
 Debug "----------------------------"
 Debug "Deleting old files"
 If (Test-Path "$PSScriptRoot\GeoLite2-Country-CSV") {
@@ -249,7 +255,7 @@ If (Test-Path "$PSScriptRoot\Script-Created-Files\GeoLite2-Country-CSV.zip") {
 	}
 }
 
-<#	Download latest GeoLite2 data and unzip  #>
+<#	Download latest GeoLite2 data  #>
 Debug "----------------------------"
 Debug "Downloading MaxMind data"
 $Timer = Get-Date
@@ -268,6 +274,7 @@ Catch {
 	Exit
 }
 
+<#	Unzip fresh GeoLite2 data  #>
 $Timer = Get-Date
 Try {
 	Expand-Archive $output -DestinationPath $PSScriptRoot -ErrorAction Stop
@@ -282,7 +289,7 @@ Catch {
 	Exit
 }
 
-<#	Rename folder so script can find it  #>
+<#	Rename GeoLite2 data folder so script can find it  #>
 Get-ChildItem $PSScriptRoot | Where-Object {$_.PSIsContainer -eq $true} | ForEach {
 	If ($_.Name -match 'GeoLite2-Country-CSV_[0-9]{8}') {
 		$FolderName = $_.Name
@@ -314,19 +321,17 @@ Catch {
 
 <#  Count database records  #>
 Debug "----------------------------"
-Debug "Counting database records for comparison"
-$Timer = Get-Date
 $GCQuery = "SELECT COUNT(*) AS count FROM geocountry"
 MySQLQuery $GCQuery | ForEach {
-	$CountDB = $_.count
+	[int]$CountDB = $_.count
 }
-Debug "Counted $(($CountDB).ToString('#,###')) database records in $(ElapsedTime $Timer)"
+Debug "$(($CountDB).ToString('#,###')) database records prior to starting update"
 
 <#  Count CSV records  #>
 Debug "----------------------------"
 Debug "Counting CSV records for comparison"
 $Timer = Get-Date
-$CountIPv4 = (Get-Content $CountryBlocksIPV4 | Where {$_ -match "^\d"}).Count
+[int]$CountIPv4 = (Get-Content $CountryBlocksIPV4 | Where {$_ -match "^\d"}).Count
 Debug "Counted $(($CountIPv4).ToString('#,###')) IPv4 records in new CSV in $(ElapsedTime $Timer)"
 
 <#  Convert CSV for import  #>
@@ -435,16 +440,14 @@ Catch {
 #
 #########################################>
 
-<#  Check for updates  #>
-CheckForUpdates
-
-<#  Now finish up with email results  #>
+<#  Now finish up  #>
 Debug "----------------------------"
 If ($CountImport -eq $CountIPv4) {
 	Email "[OK] Successfully imported $(($CountImport).ToString('#,###')) records in $(ElapsedTime $StartScriptTime)"
 	Debug "Successfully imported $(($CountImport).ToString('#,###')) records in $(ElapsedTime $StartScriptTime)"
 } Else {
-	Email "[ERROR] record count mismatch:"
+	If (($CountIPv4 - $CountImport) -lt 0) {$Mismatch = ($CountImport - $CountIPv4)} Else {$Mismatch = ($CountIPv4 - $CountImport)}
+	Email "[ERROR] Count mismatched by $(($Mismatch).ToString('#.###')) records"
 	Email "$(($CountImport).ToString('#,###')) records imported to database"
 	Email "$(($CountIPv4).ToString('#,###')) records in MaxMind CSV"
 	Email "Completed update in $(ElapsedTime $StartScriptTime)"
@@ -453,8 +456,6 @@ If ($CountImport -eq $CountIPv4) {
 	Debug "$(($CountIPv4).ToString('#,###')) records in MaxMind CSV"
 	Debug "Completed update in $(ElapsedTime $StartScriptTime)"
 }
-Debug "GeoIP update finished"
-Email " "
-Email "GeoIP update finish: $(Get-Date -f G)"
 
+<#  Email results  #>
 EmailResults
