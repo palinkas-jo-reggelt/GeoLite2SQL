@@ -205,7 +205,10 @@ If ($CountTables -gt 0) {
 Debug "----------------------------"
 Debug "Counting CSV records for comparison"
 $Timer = Get-Date
-[int]$CountIPv4 = (Get-Content $CountryBlocksIPV4 | Where {$_ -match "^\d"}).Count
+[int]$CountIPv4 = 0
+$Reader = New-Object IO.StreamReader $CountryBlocksIPV4
+While($Reader.ReadLine() -ne $NULL) {$CountIPv4++}
+$CountIPv4 = $CountIPv4 - 1  # Remove header from count
 Debug "Counted $(($CountIPv4).ToString('#,###')) IPv4 records in new CSV in $(ElapsedTime $Timer)"
 
 <#  Convert CSV for import  #>
