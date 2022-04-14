@@ -55,7 +55,7 @@ $MaxAttachmentSize    = 10             # Size in MB
 
 ###   Script Variables   ###
 $LicenseKey           = "supersecretlicensekey"
-$LocationLang         = "en"
+$LocationLanguage     = "en"
 $GeoIP2CSVConverter   = "$PSScriptRoot\geoip2-csv-converter\geoip2-csv-converter.exe"
 
 ###   Verbosity   ###
