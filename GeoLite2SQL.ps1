@@ -41,7 +41,7 @@
 		FROM (
 			SELECT * 
 			FROM geocountry 
-			WHERE INET6_ATON('212.186.81.105') <= network_last
+			WHERE INET6_ATON('212.186.81.105') <= network_end
 			LIMIT 1
 		) AS a 
 		INNER JOIN countrylocations AS b on a.geoname_id = b.geoname_id
@@ -51,7 +51,7 @@
 		FROM (
 			SELECT * 
 			FROM geocountry 
-			WHERE INET6_ATON('2001:67c:28a4::') <= network_last
+			WHERE INET6_ATON('2001:67c:28a4::') <= network_end
 			LIMIT 1
 		) AS a 
 		INNER JOIN countrylocations AS b on a.geoname_id = b.geoname_id
@@ -63,7 +63,7 @@
 		FROM (
 			SELECT * 
 			FROM geocity 
-			WHERE INET6_ATON('212.186.81.105') <= network_last
+			WHERE INET6_ATON('212.186.81.105') <= network_end
 			LIMIT 1
 		) AS a 
 		INNER JOIN citylocations AS b on a.geoname_id = b.geoname_id
@@ -73,7 +73,7 @@
 		FROM (
 			SELECT * 
 			FROM geocity 
-			WHERE INET6_ATON('2001:67c:28a4::') <= network_last
+			WHERE INET6_ATON('2001:67c:28a4::') <= network_end
 			LIMIT 1
 		) AS a 
 		INNER JOIN citylocations AS b on a.geoname_id = b.geoname_id
@@ -463,7 +463,7 @@ Try {
 			DROP TABLE IF EXISTS geocountry;
 			CREATE TABLE geocountry (
 				network_start VARBINARY(16) NOT NULL,
-				network_last VARBINARY(16) NOT NULL,
+				network_end VARBINARY(16) NOT NULL,
 				geoname_id INT NOT NULL,
 				registered_country_geoname_id INT,
 				represented_country_geoname_id INT,
@@ -471,7 +471,7 @@ Try {
 				is_satellite_provider TINYINT,
 				KEY geoname_id (geoname_id),
 				KEY network_start (network_start),
-				PRIMARY KEY network_last (network_last)
+				PRIMARY KEY network_end (network_end)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8
 		"
 	} Else {
@@ -479,7 +479,7 @@ Try {
 			DROP TABLE IF EXISTS geocity;
 			CREATE TABLE geocity (
 				network_start VARBINARY(16) NOT NULL,
-				network_last VARBINARY(16) NOT NULL,
+				network_end VARBINARY(16) NOT NULL,
 				geoname_id INT NOT NULL,
 				registered_country_geoname_id INT,
 				represented_country_geoname_id INT,
@@ -491,7 +491,7 @@ Try {
 				accuracy_radius TINYINT,
 				KEY geoname_id (geoname_id),
 				KEY network_start (network_start),
-				PRIMARY KEY network_last (network_last)
+				PRIMARY KEY network_end (network_end)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 		"
 	}
@@ -500,7 +500,7 @@ Try {
 	If ($Type -match "country") {
 		$GLQuery = "
 			DROP TABLE IF EXISTS countrylocations;
-			CREATE TABLE countrylocations (                       
+			CREATE TABLE countrylocations (
 				geoname_id INT NOT NULL,
 				locale_code TINYTEXT,
 				continent_code TINYTEXT,
@@ -546,104 +546,62 @@ Catch {
 }
 
 <#  Import IPv4 data  #>
-$Timer = Get-Date
 Debug "----------------------------"
 Debug "Import country IP information"
-Try {
-	$strFileLocIPv4 = $BlocksConvertedIPv4 -Replace "\\","\\"
-	If ($Type -match "country") {
-		$ImportIPv4Query = "
-			LOAD DATA INFILE '$strFileLocIPv4'
-			INTO TABLE geocountry
-			FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n' IGNORE 1 ROWS
-			(@network_start_hex, @network_last_hex, @geoname_id, @registered_country_geoname_id, @represented_country_geoname_id, @is_anonymous_proxy, @is_satellite_provider)
-			SET 
-				network_start = UNHEX(@network_start_hex),
-				network_last = UNHEX(@network_last_hex),
-				geoname_id = @geoname_id,
-				registered_country_geoname_id = @registered_country_geoname_id,
-				represented_country_geoname_id = @represented_country_geoname_id,
-				is_anonymous_proxy = @is_anonymous_proxy,
-				is_satellite_provider = @is_satellite_provider;
-		"
-	} Else {
-		$ImportIPv4Query = "
-			LOAD DATA INFILE '$strFileLocIPv4'
-			INTO TABLE geocity
-			FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n' IGNORE 1 ROWS
-			(@network_start_hex, @network_last_hex, @geoname_id, @registered_country_geoname_id, @represented_country_geoname_id, @is_anonymous_proxy, @is_satellite_provider, @postal_code, @latitude, @longitude, @accuracy_radius)
-			SET 
-				network_start = UNHEX(@network_start_hex),
-				network_last = UNHEX(@network_last_hex),
-				geoname_id = @geoname_id,
-				registered_country_geoname_id = @registered_country_geoname_id,
-				represented_country_geoname_id = @represented_country_geoname_id,
-				is_anonymous_proxy = @is_anonymous_proxy,
-				is_satellite_provider = @is_satellite_provider,
-				postal_code = @postal_code,
-				latitude = @latitude,
-				longitude = @longitude,
-				accuracy_radius = @accuracy_radius;
-		"
+[string]$StrFileLocIPv4 = $BlocksConvertedIPv4 -Replace "\\","\\"
+[string]$StrFileLocIPv6 = $BlocksConvertedIPv6 -Replace "\\","\\"
+$StrFileLocHash = @{
+	"IPv4" = "$($StrFileLocIPv4)"
+	"IPv6" = "$($StrFileLocIPv6)"
+}
+ForEach ($IPver in $StrFileLocHash.Keys) {
+	$Timer = Get-Date
+	Try {
+		If ($Type -match "country") {
+			$ImportIPv4Query = "
+				LOAD DATA INFILE '$($strFileLocHash[$IPver])'
+				INTO TABLE geocountry
+				FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '`"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
+				(@network_start_hex, @network_last_hex, @geoname_id, @registered_country_geoname_id, @represented_country_geoname_id, @is_anonymous_proxy, @is_satellite_provider)
+				SET 
+					network_start = UNHEX(@network_start_hex),
+					network_end = UNHEX(@network_last_hex),
+					geoname_id = NULLIF(@geoname_id, ''),
+					registered_country_geoname_id = NULLIF(@registered_country_geoname_id, ''),
+					represented_country_geoname_id = NULLIF(@represented_country_geoname_id, ''),
+					is_anonymous_proxy = NULLIF(@is_anonymous_proxy, ''),
+					is_satellite_provider = NULLIF(@is_satellite_provider, '');
+			"
+		} Else {
+			$ImportIPv4Query = "
+				LOAD DATA INFILE '$($strFileLocHash[$IPver])'
+				INTO TABLE geocity
+				FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '`"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
+				(@network_start_hex, @network_last_hex, @geoname_id, @registered_country_geoname_id, @represented_country_geoname_id, @is_anonymous_proxy, @is_satellite_provider, @postal_code, @latitude, @longitude, @accuracy_radius)
+				SET 
+					network_start = UNHEX(@network_start_hex),
+					network_end = UNHEX(@network_last_hex),
+					geoname_id = NULLIF(@geoname_id, ''),
+					registered_country_geoname_id = NULLIF(@registered_country_geoname_id, ''),
+					represented_country_geoname_id = NULLIF(@represented_country_geoname_id, ''),
+					is_anonymous_proxy = NULLIF(@is_anonymous_proxy, ''),
+					is_satellite_provider = NULLIF(@is_satellite_provider, ''),
+					postal_code = NULLIF(@postal_code, ''),
+					latitude = NULLIF(@latitude, ''),
+					longitude = NULLIF(@longitude, ''),
+					accuracy_radius = NULLIF(@accuracy_radius, '');
+			"
+		}
+		MySQLQuery $ImportIPv4Query
+		DEBUG "[OK] Country $IPver data imported in $(ElapsedTime $Timer)"
 	}
-	MySQLQuery $ImportIPv4Query
-	DEBUG "[OK] Country IPv4 data imported in $(ElapsedTime $Timer)"
-}
-Catch {
-	Debug "[ERROR] : Unable to convert country IPv4 CSV : $($Error[0])"
-	Debug "[ERROR] : Quitting Script"
-	Email "[ERROR] Failed to convert country IPv4 CSV. See error log."
-	EmailResults
-	Exit
-}
-
-$Timer = Get-Date
-Try {
-	$strFileLocIPv6 = $BlocksConvertedIPv6 -Replace "\\","\\"
-	If ($Type -match "country") {
-		$ImportIPv6Query = "
-			LOAD DATA INFILE '$strFileLocIPv6'
-			INTO TABLE geocountry
-			FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n' IGNORE 1 ROWS
-			(@network_start_hex, @network_last_hex, @geoname_id, @registered_country_geoname_id, @represented_country_geoname_id, @is_anonymous_proxy, @is_satellite_provider)
-			SET 
-				network_start = UNHEX(@network_start_hex),
-				network_last = UNHEX(@network_last_hex),
-				geoname_id = @geoname_id,
-				registered_country_geoname_id = @registered_country_geoname_id,
-				represented_country_geoname_id = @represented_country_geoname_id,
-				is_anonymous_proxy = @is_anonymous_proxy,
-				is_satellite_provider = @is_satellite_provider;
-		"
-	} Else {
-		$ImportIPv6Query = "
-			LOAD DATA INFILE '$strFileLocIPv6'
-			INTO TABLE geocity
-			FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n' IGNORE 1 ROWS
-			(@network_start_hex, @network_last_hex, @geoname_id, @registered_country_geoname_id, @represented_country_geoname_id, @is_anonymous_proxy, @is_satellite_provider, @postal_code, @latitude, @longitude, @accuracy_radius)
-			SET 
-				network_start = UNHEX(@network_start_hex),
-				network_last = UNHEX(@network_last_hex),
-				geoname_id = @geoname_id,
-				registered_country_geoname_id = @registered_country_geoname_id,
-				represented_country_geoname_id = @represented_country_geoname_id,
-				is_anonymous_proxy = @is_anonymous_proxy,
-				is_satellite_provider = @is_satellite_provider,
-				postal_code = @postal_code,
-				latitude = @latitude,
-				longitude = @longitude,
-				accuracy_radius = @accuracy_radius;
-		"
+	Catch {
+		Debug "[ERROR] : Unable to convert country $IPver CSV : $($Error[0])"
+		Debug "[ERROR] : Quitting Script"
+		Email "[ERROR] Failed to convert country $IPver CSV. See error log."
+		EmailResults
+		Exit
 	}
-	MySQLQuery $ImportIPv6Query
-	DEBUG "[OK] Country IPv6 data imported in $(ElapsedTime $Timer)"
-}
-Catch {
-	Debug "[ERROR] : Unable to convert country IPv6 CSV : $($Error[0])"
-	Debug "[ERROR] : Quitting Script"
-	Email "[ERROR] Failed to convert country IPv6 CSV. See error log."
-	EmailResults
-	Exit
 }
 
 <#  Import country name data  #>
@@ -654,38 +612,38 @@ Try {
 		$ImportLocQuery = "
 			LOAD DATA INFILE '$strFileLocName'
 			INTO TABLE countrylocations
-			FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n' IGNORE 1 ROWS
+			FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '`"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
 			(@geoname_id, @locale_code, @continent_code, @continent_name, @country_iso_code, @country_name, @is_in_european_union)
 			SET
-				geoname_id = @geoname_id, 
-				locale_code = @locale_code, 
-				continent_code = @continent_code, 
-				continent_name = @continent_name, 
-				country_code = @country_iso_code, 
-				country_name = @country_name, 
-				is_in_european_union = @is_in_european_union;
+				geoname_id = NULLIF(@geoname_id, ''), 
+				locale_code = NULLIF(@locale_code, ''), 
+				continent_code = NULLIF(@continent_code, ''), 
+				continent_name = NULLIF(@continent_name, ''), 
+				country_code = NULLIF(@country_iso_code, ''), 
+				country_name = NULLIF(@country_name, ''), 
+				is_in_european_union = NULLIF(@is_in_european_union, '');
 		"
 	} Else {
 		$ImportLocQuery = "
 			LOAD DATA INFILE '$strFileLocName'
 			INTO TABLE citylocations
-			FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n' IGNORE 1 ROWS
+			FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '`"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
 			(@geoname_id, @locale_code, @continent_code, @continent_name, @country_iso_code, @country_name, @subdivision_1_iso_code, @subdivision_1_name, @subdivision_2_iso_code, @subdivision_2_name, @city_name, @metro_code, @time_zone, @is_in_european_union)
 			SET 
-				geoname_id = @geoname_id, 
-				locale_code = @locale_code, 
-				continent_code = @continent_code, 
-				continent_name = @continent_name, 
-				country_code = @country_iso_code, 
-				country_name = @country_name, 
-				subdivision_1_iso_code = @subdivision_1_iso_code, 
-				subdivision_1_name = @subdivision_1_name, 
-				subdivision_2_iso_code = @subdivision_2_iso_code, 
-				subdivision_2_name = @subdivision_2_name, 
-				city_name = @city_name, 
-				metro_code = @metro_code, 
-				time_zone = @time_zone, 
-				is_in_european_union = @is_in_european_union;
+				geoname_id = NULLIF(@geoname_id, ''), 
+				locale_code = NULLIF(@locale_code, ''), 
+				continent_code = NULLIF(@continent_code, ''), 
+				continent_name = NULLIF(@continent_name, ''), 
+				country_code = NULLIF(@country_iso_code, ''), 
+				country_name = NULLIF(@country_name, ''), 
+				subdivision_1_iso_code = NULLIF(@subdivision_1_iso_code, ''), 
+				subdivision_1_name = NULLIF(@subdivision_1_name, ''), 
+				subdivision_2_iso_code = NULLIF(@subdivision_2_iso_code, ''), 
+				subdivision_2_name = NULLIF(@subdivision_2_name, ''), 
+				city_name = NULLIF(@city_name, ''), 
+				metro_code = NULLIF(@metro_code, ''), 
+				time_zone = NULLIF(@time_zone, ''), 
+				is_in_european_union = NULLIF(@is_in_european_union, '');
 		"
 	}
 	MySQLQuery $ImportLocQuery
@@ -703,12 +661,6 @@ $CountImportSQL = "SELECT COUNT(*) AS count FROM geo" + $Type + ";"
 MySQLQuery $CountImportSQL | ForEach {
 	[int]$CountImport = $_.count
 }
-
-<#########################################
-#
-#  FINISH UP
-#
-#########################################>
 
 <#  Now finish up  #>
 Debug "----------------------------"
