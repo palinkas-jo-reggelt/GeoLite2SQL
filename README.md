@@ -47,7 +47,7 @@ SELECT country_code, country_name
 FROM (
 	SELECT * 
 	FROM geocountry 
-	WHERE INET6_ATON('212.186.81.105') <= network_last
+	WHERE INET6_ATON('212.186.81.105') <= network_end
 	LIMIT 1
 ) AS a 
 INNER JOIN countrylocations AS b on a.geoname_id = b.geoname_id
@@ -59,7 +59,7 @@ SELECT country_code, country_name
 FROM (
 	SELECT * 
 	FROM geocountry 
-	WHERE INET6_ATON('2001:67c:28a4::') <= network_last
+	WHERE INET6_ATON('2001:67c:28a4::') <= network_end
 	LIMIT 1
 ) AS a 
 INNER JOIN countrylocations AS b on a.geoname_id = b.geoname_id
@@ -74,7 +74,7 @@ SELECT *
 FROM (
 	SELECT * 
 	FROM geocity 
-	WHERE INET6_ATON('212.186.81.105') <= network_last
+	WHERE INET6_ATON('212.186.81.105') <= network_end
 	LIMIT 1
 ) AS a 
 INNER JOIN citylocations AS b on a.geoname_id = b.geoname_id
@@ -86,7 +86,7 @@ SELECT *
 FROM (
 	SELECT * 
 	FROM geocity 
-	WHERE INET6_ATON('2001:67c:28a4::') <= network_last
+	WHERE INET6_ATON('2001:67c:28a4::') <= network_end
 	LIMIT 1
 ) AS a 
 INNER JOIN citylocations AS b on a.geoname_id = b.geoname_id
