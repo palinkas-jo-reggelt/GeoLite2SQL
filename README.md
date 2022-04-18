@@ -50,7 +50,9 @@ FROM (
 ) AS a 
 INNER JOIN countrylocations AS b on a.geoname_id = b.geoname_id
 WHERE network_start <= INET6_ATON('212.186.81.105');
+```
 
+```
 SELECT country_code, country_name
 FROM (
 	SELECT * 
@@ -75,7 +77,9 @@ FROM (
 ) AS a 
 INNER JOIN citylocations AS b on a.geoname_id = b.geoname_id
 WHERE network_start <= INET6_ATON('212.186.81.105');
+```
 
+```
 SELECT *
 FROM (
 	SELECT * 
