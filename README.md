@@ -29,12 +29,14 @@ https://blog.maxmind.com/2019/12/18/significant-changes-to-accessing-and-using-g
 
 ## NOTES
 --!!!--   
-Requires user privileges: GRANT FILE ON *.* TO 'db-user'@'%' in order for LOAD DATA INFILE to work!
-Data import will FAIL due to access denied to user without these privileges!
-Use user 'root' if you cannot grant these privileges.
---!!!--
+Requires user privileges: GRANT FILE ON *.* TO 'db-user'@'%' in order for LOAD DATA INFILE to work!  
+Data import will FAIL due to access denied to user without these privileges!  
+Use user 'root' if you cannot grant these privileges.  
+--!!!-- 
 
 Run every Wednesday via task scheduler (MaxMinds releases updates on Tuesdays)
+
+License Key required from MaxMind in order to download data (its free, sign up here: https://www.maxmind.com/en/geolite2/signup)
 
 ## EXAMPLE QUERY
 Returns country_code and country_name for a given IP address from the country database:
