@@ -286,7 +286,7 @@ New-Item $DebugLog
 New-Item $EmailBody
 
 <#  Fill debug log header  #>
-Write-Output "::: $UploadName Backup Routine $(Get-Date -f D) :::" | Out-File $DebugLog -Encoding ASCII -Append
+Write-Output "::: MaxMind Geo$Type Database Import Routine $(Get-Date -f D) :::" | Out-File $DebugLog -Encoding ASCII -Append
 Write-Output " " | Out-File $DebugLog -Encoding ASCII -Append
 
 <#  Fill email header  #>
@@ -296,11 +296,11 @@ If ($UseHTML) {
 		<head><meta name=`"viewport`" content=`"width=device-width, initial-scale=1.0 `" /></head>
 		<body style=`"font-family:Arial Narrow`">
 		<table>
-		<tr><td style='text-align:center;'>::: Geo$Type Update Routine $(Get-Date -f D) :::</td></tr>
+		<tr><td style='text-align:center;'>::: MaxMind Geo$Type Database Import Routine $(Get-Date -f D) :::</td></tr>
 		<tr><td>&nbsp;</td></tr>
 	" | Out-File $EmailBody -Encoding ASCII -Append
 } Else {
-	Write-Output "::: Geo$Type Update Routine $(Get-Date -f D) :::" | Out-File $EmailBody -Encoding ASCII -Append
+	Write-Output "::: MaxMind Geo$Type Database Import Routine $(Get-Date -f D) :::" | Out-File $EmailBody -Encoding ASCII -Append
 	Write-Output " " | Out-File $EmailBody -Encoding ASCII -Append
 }
 
@@ -425,17 +425,17 @@ Debug "Counted $(($CountIPs).ToString('#,###')) records in new IPv4 & IPv6 CSVs 
 
 <#  Convert CSV for import  #>
 Debug "----------------------------"
-Debug "Converting CSV"
+Debug "Converting CSVs to hex-range"
 $Timer = Get-Date
 Try {
 	& $GeoIP2CSVConverter -block-file="$BlocksIPV4" -output-file="$BlocksConvertedIPv4" -include-hex-range
-	Debug "Country IPv4 CSV successfully converted to hex-range in $(ElapsedTime $Timer)"
-	Email "[OK] Converted IPv4 country block CSV"
+	Debug "$Type IPv4 CSV successfully converted to hex-range in $(ElapsedTime $Timer)"
+	Email "[OK] Converted IPv4 $Type block CSV"
 }
 Catch {
-	Debug "[ERROR] : Unable to convert country IPv4 CSV : $($Error[0])"
+	Debug "[ERROR] : Unable to convert $Type IPv4 CSV : $($Error[0])"
 	Debug "[ERROR] : Quitting Script"
-	Email "[ERROR] Failed to convert country IPv4 CSV. See error log."
+	Email "[ERROR] Failed to convert $Type IPv4 CSV. See error log."
 	EmailResults
 	Exit
 }
@@ -443,13 +443,13 @@ Catch {
 $Timer = Get-Date
 Try {
 	& $GeoIP2CSVConverter -block-file="$BlocksIPV6" -output-file="$BlocksConvertedIPv6" -include-hex-range
-	Debug "Country IPv6 CSV successfully converted to hex-range in $(ElapsedTime $Timer)"
-	Email "[OK] Converted IPv6 country block CSV"
+	Debug "$Type IPv6 CSV successfully converted to hex-range in $(ElapsedTime $Timer)"
+	Email "[OK] Converted IPv6 $Type block CSV"
 }
 Catch {
-	Debug "[ERROR] : Unable to convert country IPv6 CSV : $($Error[0])"
+	Debug "[ERROR] : Unable to convert $Type IPv6 CSV : $($Error[0])"
 	Debug "[ERROR] : Quitting Script"
-	Email "[ERROR] Failed to convert country IPv6 CSV. See error log."
+	Email "[ERROR] Failed to convert $Type IPv6 CSV. See error log."
 	EmailResults
 	Exit
 }
@@ -545,9 +545,9 @@ Catch {
 	Exit
 }
 
-<#  Import IPv4 data  #>
+<#  Import to database  #>
 Debug "----------------------------"
-Debug "Import country IP information"
+Debug "Import converted CSVs to database"
 [string]$StrFileLocIPv4 = $BlocksConvertedIPv4 -Replace "\\","\\"
 [string]$StrFileLocIPv6 = $BlocksConvertedIPv6 -Replace "\\","\\"
 $StrFileLocHash = @{
@@ -593,18 +593,18 @@ ForEach ($IPver in $StrFileLocHash.Keys) {
 			"
 		}
 		MySQLQuery $ImportIPv4Query
-		DEBUG "[OK] Country $IPver data imported in $(ElapsedTime $Timer)"
+		DEBUG "[OK] $Type $IPver data imported in $(ElapsedTime $Timer)"
 	}
 	Catch {
-		Debug "[ERROR] : Unable to convert country $IPver CSV : $($Error[0])"
+		Debug "[ERROR] : Unable to convert $Type $IPver CSV : $($Error[0])"
 		Debug "[ERROR] : Quitting Script"
-		Email "[ERROR] Failed to convert country $IPver CSV. See error log."
+		Email "[ERROR] Failed to convert $Type $IPver CSV. See error log."
 		EmailResults
 		Exit
 	}
 }
 
-<#  Import country name data  #>
+<#  Import name data  #>
 $Timer = Get-Date
 Try {
 	$strFileLocName = $LocationsRenamed -Replace "\\","\\"
@@ -647,12 +647,12 @@ Try {
 		"
 	}
 	MySQLQuery $ImportLocQuery
-	DEBUG "[OK] Country name data imported in $(ElapsedTime $Timer)"
+	DEBUG "[OK] $Type name data imported in $(ElapsedTime $Timer)"
 }
 Catch {
-	Debug "[ERROR] : Unable to convert country name CSV : $($Error[0])"
+	Debug "[ERROR] : Unable to convert $Type name CSV : $($Error[0])"
 	Debug "[ERROR] : Quitting Script"
-	Email "[ERROR] Failed to convert country name CSV. See error log."
+	Email "[ERROR] Failed to convert $Type name CSV. See error log."
 	EmailResults
 	Exit
 }
