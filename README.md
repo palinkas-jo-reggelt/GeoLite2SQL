@@ -1,5 +1,5 @@
 ## GeoLite2SQL
-Powershell script to import MaxMinds GeoLite2 data into database server table
+Powershell script to import MaxMinds GeoLite2 data into MySQL
 
 ## NEW
 
@@ -94,5 +94,5 @@ WHERE network_start <= INET6_ATON('2001:67c:28a4::');
 ```
 
 ## Thanks
-Many thanks to @SorenRR for providing lots of help with lot of stuff.
+Many thanks to @SorenRR for providing lots of help with lot of stuff.  
 Many thanks to @RvdHout for help with IPv6 integration.
