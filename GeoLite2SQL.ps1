@@ -225,7 +225,7 @@ Function CheckForUpdates {
 				Email "[INFO] Upgrade to version $GitHubVersion available at https://github.com/palinkas-jo-reggelt/GeoLite2SQL"
 			}
 		} Else {
-			Debug "Backup & Upload script is latest version: $GitHubVersion"
+			Debug "GeoLite2SQL script is latest version: $GitHubVersion"
 		}
 	} Else {
 		If ((-not($GetGitHubVersion)) -and (-not($GetLocalVersion))) {
@@ -472,7 +472,7 @@ Try {
 				KEY geoname_id (geoname_id),
 				KEY network_start (network_start),
 				PRIMARY KEY network_end (network_end)
-			) ENGINE=InnoDB DEFAULT CHARSET=utf8
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 		"
 	} Else {
 		$GCQuery = "
@@ -509,7 +509,7 @@ Try {
 				country_name TINYTEXT,
 				is_in_european_union TINYINT,
 				KEY geoname_id (geoname_id)
-			) ENGINE=InnoDB DEFAULT CHARSET=utf8
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 		"
 	} Else {
 		$GLQuery = "
