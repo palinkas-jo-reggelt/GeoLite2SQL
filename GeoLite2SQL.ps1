@@ -396,7 +396,7 @@ Catch {
 <#  Count database records  #>
 Debug "----------------------------"
 Debug "Counting database records for comparison"
-$Query = "SELECT COUNT(*) AS count FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'geo" + $Type + "'"
+$Query = "SELECT COUNT(*) AS count FROM information_schema.tables WHERE table_schema = '" + $MySQLDatabase + "' AND table_name = 'geo" + $Type + "'"
 MySQLQuery $Query | ForEach {
 	[int]$CountTables = $_.count
 }
@@ -405,7 +405,11 @@ If ($CountTables -gt 0) {
 	MySQLQuery $Query | ForEach {
 		[int]$CountDB = $_.count
 	}
-	Debug "$(($CountDB).ToString('#,###')) database records prior to starting update"
+	If ($CountDB -eq 0) {
+		Debug "0 database records prior to starting update"
+	} Else { 
+		Debug "$(($CountDB).ToString('#,###')) database records prior to starting update"
+	}
 } Else {
 	Debug "No database records to count"
 	[int]$CountDB = 0
