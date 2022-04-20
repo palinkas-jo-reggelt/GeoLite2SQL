@@ -552,18 +552,16 @@ Catch {
 <#  Import to database  #>
 Debug "----------------------------"
 Debug "Import converted CSVs to database"
-[string]$StrFileLocIPv4 = $BlocksConvertedIPv4 -Replace "\\","\\"
-[string]$StrFileLocIPv6 = $BlocksConvertedIPv6 -Replace "\\","\\"
 $StrFileLocHash = @{
-	"IPv4" = "$($StrFileLocIPv4)"
-	"IPv6" = "$($StrFileLocIPv6)"
+	"IPv4" = "$($BlocksConvertedIPv4 -Replace '\\','\\')"
+	"IPv6" = "$($BlocksConvertedIPv6 -Replace '\\','\\')"
 }
 ForEach ($IPver in $StrFileLocHash.Keys) {
 	$Timer = Get-Date
 	Try {
 		If ($Type -match "country") {
 			$ImportIPv4Query = "
-				LOAD DATA INFILE '$($strFileLocHash[$IPver])'
+				LOAD DATA INFILE '" + $($strFileLocHash[$IPver]) + "'
 				INTO TABLE geocountry
 				FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '`"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
 				(@network_start_hex, @network_last_hex, @geoname_id, @registered_country_geoname_id, @represented_country_geoname_id, @is_anonymous_proxy, @is_satellite_provider)
@@ -578,7 +576,7 @@ ForEach ($IPver in $StrFileLocHash.Keys) {
 			"
 		} Else {
 			$ImportIPv4Query = "
-				LOAD DATA INFILE '$($strFileLocHash[$IPver])'
+				LOAD DATA INFILE '" + $($strFileLocHash[$IPver]) + "'
 				INTO TABLE geocity
 				FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '`"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
 				(@network_start_hex, @network_last_hex, @geoname_id, @registered_country_geoname_id, @represented_country_geoname_id, @is_anonymous_proxy, @is_satellite_provider, @postal_code, @latitude, @longitude, @accuracy_radius)
@@ -611,10 +609,9 @@ ForEach ($IPver in $StrFileLocHash.Keys) {
 <#  Import name data  #>
 $Timer = Get-Date
 Try {
-	$strFileLocName = $LocationsRenamed -Replace "\\","\\"
 	If ($Type -match "country") {
 		$ImportLocQuery = "
-			LOAD DATA INFILE '$strFileLocName'
+			LOAD DATA INFILE '" + $($LocationsRenamed -Replace '\\','\\') + "'
 			INTO TABLE countrylocations
 			FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '`"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
 			(@geoname_id, @locale_code, @continent_code, @continent_name, @country_iso_code, @country_name, @is_in_european_union)
@@ -629,7 +626,7 @@ Try {
 		"
 	} Else {
 		$ImportLocQuery = "
-			LOAD DATA INFILE '$strFileLocName'
+			LOAD DATA INFILE '" + $($LocationsRenamed -Replace '\\','\\') + "'
 			INTO TABLE citylocations
 			FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '`"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
 			(@geoname_id, @locale_code, @continent_code, @continent_name, @country_iso_code, @country_name, @subdivision_1_iso_code, @subdivision_1_name, @subdivision_2_iso_code, @subdivision_2_name, @city_name, @metro_code, @time_zone, @is_in_european_union)
