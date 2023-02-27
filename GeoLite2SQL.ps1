@@ -489,7 +489,7 @@ Try {
 				represented_country_geoname_id INT,
 				is_anonymous_proxy TINYINT,
 				is_satellite_provider TINYINT,
-				postal_code TINYINT,
+				postal_code VARCHAR(12),
 				latitude DECIMAL(7,4),
 				longitude DECIMAL(7,4),
 				accuracy_radius TINYINT,
