@@ -471,8 +471,8 @@ Try {
 				geoname_id INT NOT NULL,
 				registered_country_geoname_id INT,
 				represented_country_geoname_id INT,
-				is_anonymous_proxy TINYINT,
-				is_satellite_provider TINYINT,
+				is_anonymous_proxy BOOL,
+				is_satellite_provider BOOL,
 				KEY geoname_id (geoname_id),
 				KEY network_start (network_start),
 				PRIMARY KEY network_end (network_end)
@@ -487,12 +487,12 @@ Try {
 				geoname_id INT NOT NULL,
 				registered_country_geoname_id INT,
 				represented_country_geoname_id INT,
-				is_anonymous_proxy TINYINT,
-				is_satellite_provider TINYINT,
-				postal_code VARCHAR(12),
-				latitude DECIMAL(7,4),
-				longitude DECIMAL(7,4),
-				accuracy_radius TINYINT,
+				is_anonymous_proxy BOOL,
+				is_satellite_provider BOOL,
+				postal_code TEXT,
+				latitude FLOAT,
+				longitude FLOAT,
+				accuracy_radius INT,				
 				KEY geoname_id (geoname_id),
 				KEY network_start (network_start),
 				PRIMARY KEY network_end (network_end)
@@ -506,12 +506,12 @@ Try {
 			DROP TABLE IF EXISTS countrylocations;
 			CREATE TABLE countrylocations (
 				geoname_id INT NOT NULL,
-				locale_code TINYTEXT,
-				continent_code TINYTEXT,
-				continent_name TINYTEXT,
+				locale_code TINYTEXT NOT NULL,
+				continent_code TINYTEXT NOT NULL,
+				continent_name TINYTEXT NOT NULL,
 				country_code TINYTEXT,
 				country_name TINYTEXT,
-				is_in_european_union TINYINT,
+				is_in_european_union BOOL,
 				KEY geoname_id (geoname_id)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 		"
@@ -520,9 +520,9 @@ Try {
 			DROP TABLE IF EXISTS citylocations;
 			CREATE TABLE citylocations (
 				geoname_id INT NOT NULL,
-				locale_code TINYTEXT,
-				continent_code TINYTEXT,
-				continent_name TINYTEXT,
+				locale_code TINYTEXT NOT NULL,
+				continent_code TINYTEXT NOT NULL,
+				continent_name TINYTEXT NOT NULL,
 				country_code TINYTEXT,
 				country_name TINYTEXT,
 				subdivision_1_iso_code TINYTEXT,
@@ -532,7 +532,7 @@ Try {
 				city_name TINYTEXT,
 				metro_code TINYINT,
 				time_zone TINYTEXT,
-				is_in_european_union TINYINT,
+				is_in_european_union BOOL,
 				KEY geoname_id (geoname_id)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 		"
