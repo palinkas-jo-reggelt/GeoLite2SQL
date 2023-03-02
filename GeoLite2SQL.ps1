@@ -335,7 +335,8 @@ Debug "Downloading MaxMind data"
 $Timer = Get-Date
 Try {
 	$URL = "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-" + $Type + "-CSV&license_key=" + $LicenseKey + "&suffix=zip"
-	Start-BitsTransfer -Source $URL -Destination $DownloadedZip -ErrorAction Stop
+	Start-BitsTransfer -Source $URL -Destination $DownloadedZip -Asynchronous -ErrorAction Stop
+	Get-BitsTransfer | Complete-BitsTransfer
 	Debug "MaxMind data successfully downloaded in $(ElapsedTime $Timer)"
 	Email "[OK] MaxMind data downloaded"
 }
