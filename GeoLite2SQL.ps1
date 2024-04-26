@@ -342,34 +342,21 @@ Debug "----------------------------"
 Debug "Downloading MaxMind data"
 $Timer = Get-Date
 $URL = "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-" + $Type + "-CSV&license_key=" + $LicenseKey + "&suffix=zip"
-$Try = 1
-Do {
-	Try {
-		Invoke-WebRequest -Uri $URL -OutFile $DownloadedZip
-		If (Test-Path $DownloadedZip) {
-			Debug "MaxMind data successfully downloaded in $(ElapsedTime $Timer)"
-			Email "[OK] MaxMind data downloaded"
-			Break
-		} Else {
-			Throw "MaxMind zip file could not be found after apparently successful download"
-		}
+Try {
+	Start-BitsTransfer -Source $URL -Destination $DownloadedZip -ErrorAction Stop
+	If (Test-Path $DownloadedZip) {
+		Debug "MaxMind data successfully downloaded in $(ElapsedTime $Timer)"
+		Email "[OK] MaxMind data downloaded"
+	} Else {
+		Throw "MaxMind zip file could not be found after apparently successful download"
 	}
-	Catch {
-		Debug "[ERROR] : Unable to download MaxMind data on try # $Try"
-		Debug "[ERROR] : Error Message : $($Error[0])"
-		If ($Try -le 9) {
-			Debug "Trying again in 10 seconds"
-			Start-Sleep -Seconds 10
-		} Else {
-			Debug "Tried 10 times to download MaxMind zip file - giving up"
-			Debug "[ERROR] : Quitting Script"
-			Email "[ERROR] Failed to download MaxMind data. See error log."
-			EmailResults
-			Exit
-		}
-	}
-	$Try++
-} Until ($Try -gt 10)
+}
+Catch {
+	Debug "[ERROR] : Unable to download MaxMind data on try # $Try"
+	Debug "[ERROR] : Error Message : $($Error[0])"
+	EmailResults
+	Exit
+}
 
 <#	Unzip fresh GeoLite2 data  #>
 $Timer = Get-Date
